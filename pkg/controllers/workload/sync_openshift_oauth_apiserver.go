@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
@@ -123,9 +124,7 @@ func (c *OAuthAPIServerWorkload) syncDeployment(authOperator *operatorv1.Authent
 	// use string replacer for simple things
 	r := strings.NewReplacer(
 		"${IMAGE}", c.targetImagePullSpec,
-		// TODO: add LatestAvailableRevision support
-		//"${REVISION}", strconv.Itoa(int(authOperator.Status.LatestAvailableRevision)),
-		"${REVISION}", "1",
+		"${REVISION}", strconv.Itoa(int(authOperator.Status.OAuthAPIServer.LatestAvailableRevision)),
 	)
 
 	excludedReferences := sets.NewString("${FLAGS}")
@@ -161,9 +160,8 @@ func (c *OAuthAPIServerWorkload) syncDeployment(authOperator *operatorv1.Authent
 	required.Annotations["openshiftapiservers.operator.openshift.io/pull-spec"] = c.targetImagePullSpec
 	required.Annotations["openshiftapiservers.operator.openshift.io/operator-pull-spec"] = c.operatorImagePullSpec
 
-	// TODO: add LatestAvailableRevision support
-	//required.Labels["revision"] = strconv.Itoa(int(authOperator.Status.LatestAvailableRevision))
-	//required.Spec.Template.Labels["revision"] = strconv.Itoa(int(authOperator.Status.LatestAvailableRevision))
+	required.Labels["revision"] = strconv.Itoa(int(authOperator.Status.OAuthAPIServer.LatestAvailableRevision))
+	required.Spec.Template.Labels["revision"] = strconv.Itoa(int(authOperator.Status.OAuthAPIServer.LatestAvailableRevision))
 
 	// we watch some resources so that our deployment will redeploy without explicitly and carefully ordered resource creation
 	inputHashes, err := resourcehash.MultipleObjectHashStringMapForObjectReferences(

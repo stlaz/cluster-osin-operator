@@ -1,6 +1,7 @@
 package workload
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"regexp"
@@ -91,9 +92,10 @@ func (c *OAuthAPIServerWorkload) PreconditionFulfilled() (bool, error) {
 
 // Sync essentially manages OAuthAPI server.
 func (c *OAuthAPIServerWorkload) Sync() (*appsv1.Deployment, bool, []error) {
+	ctx := context.TODO()
 	errs := []error{}
 
-	authOperator, err := c.operatorClient.Authentications().Get("cluster", metav1.GetOptions{})
+	authOperator, err := c.operatorClient.Authentications().Get(ctx, "cluster", metav1.GetOptions{})
 	if err != nil {
 		errs = append(errs, err)
 		return nil, false, errs

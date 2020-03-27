@@ -1,6 +1,8 @@
 package revisionclient
 
 import (
+	"context"
+
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/retry"
@@ -25,7 +27,8 @@ func New(genericOperatorClient v1helpers.OperatorClient, authOperatorClient oper
 
 // GetLatestRevisionState returns the spec, status and latest revision.
 func (c *OAuthAPIServerLatestRevision) GetLatestRevisionState() (*operatorv1.OperatorSpec, *operatorv1.OperatorStatus, int32, string, error) {
-	o, err := c.authOperatorClient.Authentications().Get("cluster", metav1.GetOptions{})
+	ctx := context.TODO() // needs support in library-go
+	o, err := c.authOperatorClient.Authentications().Get(ctx, "cluster", metav1.GetOptions{})
 	if err != nil {
 		return nil, nil, 0, "", err
 	}
@@ -34,10 +37,11 @@ func (c *OAuthAPIServerLatestRevision) GetLatestRevisionState() (*operatorv1.Ope
 
 // UpdateLatestRevisionOperatorStatus updates the status with the given latestAvailableRevision and the by applying the given updateFuncs.
 func (c *OAuthAPIServerLatestRevision) UpdateLatestRevisionOperatorStatus(latestAvailableRevision int32, updateFuncs ...v1helpers.UpdateStatusFunc) (*operatorv1.OperatorStatus, bool, error) {
+	ctx := context.TODO() // needs support in library-go
 	updated := false
 	var updatedOperatorStatus *operatorv1.OperatorStatus
 	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		old, err := c.authOperatorClient.Authentications().Get("cluster", metav1.GetOptions{})
+		old, err := c.authOperatorClient.Authentications().Get(ctx, "cluster", metav1.GetOptions{})
 		if err != nil {
 			return err
 		}
@@ -56,7 +60,7 @@ func (c *OAuthAPIServerLatestRevision) UpdateLatestRevisionOperatorStatus(latest
 			return nil
 		}
 
-		modified, err = c.authOperatorClient.Authentications().UpdateStatus(modified)
+		modified, err = c.authOperatorClient.Authentications().UpdateStatus(ctx, modified, metav1.UpdateOptions{})
 		if err != nil {
 			return err
 		}

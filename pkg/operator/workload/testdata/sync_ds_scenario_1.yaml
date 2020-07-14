@@ -5,7 +5,7 @@ metadata:
     openshiftapiservers.operator.openshift.io/operator-pull-spec: ""
     openshiftapiservers.operator.openshift.io/pull-spec: ""
     openshiftapiservers.operator.openshift.io/replicas: "1"
-    operator.openshift.io/pull-spec: ""
+    operator.openshift.io/spec-hash: "a2e9f1ac4822d0342b50ffabd56c4f136ccda672ab9a8f590d10f75ee194924d"
   creationTimestamp: ~
   labels:
     apiserver: "true"

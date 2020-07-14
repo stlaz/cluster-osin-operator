@@ -203,7 +203,7 @@ func (c *OAuthAPIServerWorkload) syncDeployment(authOperator *operatorv1.Authent
 	// generation is up-to-date.
 	required.Annotations["openshiftapiservers.operator.openshift.io/replicas"] = fmt.Sprintf("%d", *masterNodeCount)
 
-	deployment, _, err := resourceapply.ApplyDeployment(c.kubeClient.AppsV1(), c.eventRecorder, required, resourcemerge.ExpectedDeploymentGeneration(required, generationStatus), false)
+	deployment, _, err := resourceapply.ApplyDeployment(c.kubeClient.AppsV1(), c.eventRecorder, required, resourcemerge.ExpectedDeploymentGeneration(required, generationStatus))
 	return deployment, err
 }
 

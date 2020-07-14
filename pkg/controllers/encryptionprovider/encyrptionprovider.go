@@ -44,7 +44,7 @@ func New(
 // case 2 otherwise return the authoritative list of EncryptedGRs
 //
 // TODO:
-// - change the code in 4.6 to return a static list (the authoritative list)
+// - change the code in 4.7 to return a static list (the authoritative list)
 func (p *encryptionProvider) EncryptedGRs() []schema.GroupResource {
 	inCharge, err := p.isOAuthEncryptionConfigManagedByThisOperator()
 	if err != nil || !inCharge {
@@ -63,6 +63,8 @@ func (p *encryptionProvider) ShouldRunEncryptionControllers() (bool, error) {
 //
 // case 1 encryption off or the secret was annotated - OAS-O is in charge
 // case 2 otherwise this operator will manage its own encryption configuration
+// TODO:
+// - change the case 1 in 4.7 so that CAO manages its own encryption config when encryption is off
 func (p *encryptionProvider) isOAuthEncryptionConfigManagedByThisOperator() (bool, error) {
 	oauthAPIServerEncryptionCfgName := fmt.Sprintf("%s-%s", encryptionconfig.EncryptionConfSecretName, p.targetNamespace)
 	oauthAPIServerEncryptionCfg, err := p.secretLister.Get(oauthAPIServerEncryptionCfgName)

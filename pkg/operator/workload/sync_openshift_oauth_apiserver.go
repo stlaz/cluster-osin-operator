@@ -203,7 +203,9 @@ func (c *OAuthAPIServerWorkload) syncDeployment(authOperator *operatorv1.Authent
 	// generation is up-to-date.
 	required.Annotations["openshiftapiservers.operator.openshift.io/replicas"] = fmt.Sprintf("%d", *masterNodeCount)
 
-	deployment, _, err := resourceapply.ApplyDeployment(c.kubeClient.AppsV1(), c.eventRecorder, required, resourcemerge.ExpectedDeploymentGeneration(required, generationStatus))
+	// do not use ApplyDeployment because this code relies on EnsureAtMostOnePodPerNode function which creates a new uuid on every invocation
+	// which will trigger a new roll out because the spec will be different
+	deployment, _, err := resourceapply.ApplyDeploymentWithForce(c.kubeClient.AppsV1(), c.eventRecorder, required, resourcemerge.ExpectedDeploymentGeneration(required, generationStatus), false)
 	return deployment, err
 }
 

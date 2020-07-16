@@ -10,7 +10,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/configobserver"
 	"github.com/openshift/library-go/pkg/operator/events"
 
-	"github.com/openshift/cluster-authentication-operator/pkg/controllers/configobservation"
+	"github.com/openshift/cluster-authentication-operator/pkg/controllers/common/configobservercontroller"
 	"github.com/openshift/cluster-authentication-operator/pkg/operator/datasync"
 )
 
@@ -22,7 +22,7 @@ func ObserveIdentityProviders(genericlisters configobserver.Listers, recorder ev
 		ret = configobserver.Pruned(ret, identityProvidersPath, identityProvidersMounts)
 	}()
 
-	listers := genericlisters.(configobservation.Listers)
+	listers := genericlisters.(configobservercontroller.Listers)
 	resourceSyncer := genericlisters.ResourceSyncer()
 	errs = []error{}
 

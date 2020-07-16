@@ -6,10 +6,9 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
+	"github.com/openshift/cluster-authentication-operator/pkg/controllers/common/configobservercontroller"
 	"github.com/openshift/library-go/pkg/operator/configobserver"
 	"github.com/openshift/library-go/pkg/operator/events"
-
-	"github.com/openshift/cluster-authentication-operator/pkg/controllers/configobservation"
 )
 
 const (
@@ -23,7 +22,7 @@ func ObserveTokenConfig(genericlisters configobserver.Listers, recorder events.R
 		ret = configobserver.Pruned(ret, tokenConfigPath)
 	}()
 
-	listers := genericlisters.(configobservation.Listers)
+	listers := genericlisters.(configobservercontroller.Listers)
 	errs = []error{}
 
 	existingConfig, _, err := unstructured.NestedMap(existingConfig, tokenConfigPath...)

@@ -11,9 +11,8 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
+	"github.com/openshift/cluster-authentication-operator/pkg/controllers/common/configobservercontroller"
 	"github.com/openshift/library-go/pkg/operator/events"
-
-	"github.com/openshift/cluster-authentication-operator/pkg/controllers/configobservation"
 )
 
 func TestObserveRouterSecret(t *testing.T) {
@@ -79,7 +78,7 @@ func TestObserveRouterSecret(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			listers := configobservation.Listers{
+			listers := configobservercontroller.Listers{
 				SecretsLister: corev1listers.NewSecretLister(indexer),
 			}
 

@@ -9,7 +9,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/configobserver"
 	"github.com/openshift/library-go/pkg/operator/events"
 
-	"github.com/openshift/cluster-authentication-operator/pkg/controllers/configobservation"
+	"github.com/openshift/cluster-authentication-operator/pkg/controllers/common/configobservercontroller"
 )
 
 func ObserveConsoleURL(genericlisters configobserver.Listers, recorder events.Recorder, existingConfig map[string]interface{}) (ret map[string]interface{}, _ []error) {
@@ -17,7 +17,7 @@ func ObserveConsoleURL(genericlisters configobserver.Listers, recorder events.Re
 	defer func() {
 		ret = configobserver.Pruned(ret, assetPublicURLPath)
 	}()
-	listers := genericlisters.(configobservation.Listers)
+	listers := genericlisters.(configobservercontroller.Listers)
 	errs := []error{}
 
 	consoleConfig, err := listers.ConsoleLister.Get("cluster")

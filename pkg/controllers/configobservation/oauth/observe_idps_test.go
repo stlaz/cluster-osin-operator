@@ -16,7 +16,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
 
-	"github.com/openshift/cluster-authentication-operator/pkg/controllers/configobservation"
+	"github.com/openshift/cluster-authentication-operator/pkg/controllers/common/configobservercontroller"
 )
 
 type mockResourceSyncer struct {
@@ -192,7 +192,7 @@ func TestObserveIdentityProviders(t *testing.T) {
 			}
 
 			syncerData := tt.previousSyncerData
-			listers := configobservation.Listers{
+			listers := configobservercontroller.Listers{
 				ConfigMapLister: corelistersv1.NewConfigMapLister(indexer),
 				SecretsLister:   corelistersv1.NewSecretLister(indexer),
 				OAuthLister:     configlistersv1.NewOAuthLister(indexer),

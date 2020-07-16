@@ -43,7 +43,11 @@ import (
 	"github.com/openshift/library-go/pkg/operator/unsupportedconfigoverridescontroller"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 
-	"github.com/openshift/cluster-authentication-operator/pkg/controllers/configobservation/configobservercontroller"
+	commonconfigobservercontroller "github.com/openshift/cluster-authentication-operator/pkg/controllers/common/configobservercontroller"
+
+	oauthapiconfigobservation "github.com/openshift/cluster-authentication-operator/pkg/operator/oauthapi"
+
+	"github.com/openshift/cluster-authentication-operator/pkg/controllers/configobservation"
 	"github.com/openshift/cluster-authentication-operator/pkg/controllers/deployment"
 	"github.com/openshift/cluster-authentication-operator/pkg/controllers/ingressstate"
 	"github.com/openshift/cluster-authentication-operator/pkg/controllers/metadata"
@@ -74,7 +78,8 @@ type operatorContext struct {
 	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces
 	operatorConfigInformer     configinformer.SharedInformerFactory
 
-	resourceSyncController *resourcesynccontroller.ResourceSyncController
+	resourceSyncController   *resourcesynccontroller.ResourceSyncController
+	configObserverController *commonconfigobservercontroller.ConfigObserverController
 
 	informersToRunFunc   []func(stopCh <-chan struct{})
 	controllersToRunFunc []func(ctx context.Context, workers int)
@@ -128,6 +133,15 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		controllerContext.EventRecorder,
 	)
 
+	operatorConfigInformer := configinformer.NewSharedInformerFactoryWithOptions(configClient, resync)
+	configObserverController := commonconfigobservercontroller.NewConfigObserver(
+		operatorClient,
+		kubeInformersForNamespaces,
+		operatorConfigInformer,
+		resourceSyncer,
+		controllerContext.EventRecorder,
+	)
+
 	operatorCtx := &operatorContext{}
 	operatorCtx.versionRecorder = status.NewVersionGetter()
 	operatorCtx.kubeClient = kubeClient
@@ -135,7 +149,8 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	operatorCtx.kubeInformersForNamespaces = kubeInformersForNamespaces
 	operatorCtx.resourceSyncController = resourceSyncer
 	operatorCtx.operatorClient = operatorClient
-	operatorCtx.operatorConfigInformer = configinformer.NewSharedInformerFactoryWithOptions(configClient, resync)
+	operatorCtx.operatorConfigInformer = operatorConfigInformer
+	operatorCtx.configObserverController = configObserverController
 
 	if err := prepareOauthOperator(controllerContext, operatorCtx); err != nil {
 		return err
@@ -145,7 +160,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 	}
 
 	operatorCtx.informersToRunFunc = append(operatorCtx.informersToRunFunc, kubeInformersForNamespaces.Start, authOperatorConfigInformers.Start, operatorCtx.operatorConfigInformer.Start)
-	operatorCtx.controllersToRunFunc = append(operatorCtx.controllersToRunFunc, resourceSyncer.Run)
+	operatorCtx.controllersToRunFunc = append(operatorCtx.controllersToRunFunc, resourceSyncer.Run, configObserverController.ToController().Run)
 
 	for _, informerToRunFn := range operatorCtx.informersToRunFunc {
 		informerToRunFn(ctx.Done())
@@ -252,13 +267,8 @@ func prepareOauthOperator(controllerContext *controllercmd.ControllerContext, op
 		controllerContext.EventRecorder,
 	).AddKubeInformers(operatorCtx.kubeInformersForNamespaces)
 
-	configObserver := configobservercontroller.NewConfigObserver(
-		operatorCtx.operatorClient,
-		operatorCtx.kubeInformersForNamespaces,
-		operatorCtx.operatorConfigInformer,
-		operatorCtx.resourceSyncController,
-		controllerContext.EventRecorder,
-	)
+	operatorCtx.configObserverController.AddNamespaceToWatchConfigMapsAndSecrets("openshift-authentication")
+	operatorCtx.configObserverController.AddConfigObservers(configobservation.OauthServerObservers())
 
 	configOverridesController := unsupportedconfigoverridescontroller.NewUnsupportedConfigOverridesController(operatorCtx.operatorClient, controllerContext.EventRecorder)
 	logLevelController := loglevel.NewClusterOperatorLoggingController(operatorCtx.operatorClient, controllerContext.EventRecorder)
@@ -352,7 +362,6 @@ func prepareOauthOperator(controllerContext *controllercmd.ControllerContext, op
 
 	operatorCtx.controllersToRunFunc = append(operatorCtx.controllersToRunFunc,
 		clusterOperatorStatus.Run,
-		configObserver.Run,
 		configOverridesController.Run,
 		deploymentController.Run,
 		logLevelController.Run,
@@ -533,6 +542,8 @@ func prepareOauthAPIServerOperator(ctx context.Context, controllerContext *contr
 		operatorCtx.operatorClient.Client,
 		operatorCtx.operatorClient.Informers,
 		eventRecorder)
+
+	operatorCtx.configObserverController.AddConfigObservers(oauthapiconfigobservation.OauthAPIServerObservers())
 
 	operatorCtx.controllersToRunFunc = append(operatorCtx.controllersToRunFunc, func(ctx context.Context, _ int) { apiServerControllers.Run(ctx) }, manageOAuthAPIController.Run)
 	operatorCtx.informersToRunFunc = append(operatorCtx.informersToRunFunc, apiregistrationInformers.Start, migrationInformer.Start)

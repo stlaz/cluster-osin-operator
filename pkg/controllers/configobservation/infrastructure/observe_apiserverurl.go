@@ -6,10 +6,9 @@ import (
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
+	"github.com/openshift/cluster-authentication-operator/pkg/controllers/common/configobservercontroller"
 	"github.com/openshift/library-go/pkg/operator/configobserver"
 	"github.com/openshift/library-go/pkg/operator/events"
-
-	"github.com/openshift/cluster-authentication-operator/pkg/controllers/configobservation"
 )
 
 func ObserveAPIServerURL(genericlisters configobserver.Listers, recorder events.Recorder, existingConfig map[string]interface{}) (ret map[string]interface{}, _ []error) {
@@ -17,7 +16,7 @@ func ObserveAPIServerURL(genericlisters configobserver.Listers, recorder events.
 	defer func() {
 		ret = configobserver.Pruned(ret, loginURLPath)
 	}()
-	listers := genericlisters.(configobservation.Listers)
+	listers := genericlisters.(configobservercontroller.Listers)
 	errs := []error{}
 
 	infrastructureConfig, err := listers.InfrastructureLister.Get("cluster")

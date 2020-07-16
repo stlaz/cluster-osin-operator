@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/openshift/cluster-authentication-operator/pkg/controllers/common"
+	"github.com/openshift/cluster-authentication-operator/pkg/operator/oauthapi"
 	operatorv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/apiserver-library-go/pkg/configflags"
 	operatorconfigclient "github.com/openshift/client-go/operator/clientset/versioned/typed/operator/v1"
@@ -19,10 +21,10 @@ import (
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
 	"github.com/openshift/library-go/pkg/operator/status"
 
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
-	kyaml "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -215,38 +217,14 @@ type oAuthAPIServerConfig struct {
 	APIServerArguments map[string][]string `json:"apiServerArguments"`
 }
 
-// unstructuredConfigFrom extract raw config for this controller
-func unstructuredConfigFrom(rawCfg []byte) ([]byte, error) {
-	configJSON, err := kyaml.ToJSON(rawCfg)
-	if err != nil {
-		return nil, err
-	}
-	configMap := map[string]interface{}{}
-	if err := json.Unmarshal(configJSON, &configMap); err != nil {
-		return nil, err
-	}
-
-	oauthAPIServerCfg, ok := configMap["oauthAPIServer"]
-	if !ok {
-		return nil, nil
-	}
-
-	oauthAPIServerRaw, err := json.Marshal(oauthAPIServerCfg)
-	if err != nil {
-		return nil, err
-	}
-	return oauthAPIServerRaw, nil
-}
-
-// getStructuredConfig reads and merges configs for this controller from ObservedConfig.Raw and UnsupportedConfigOverrides.Raw,
 // merged config is then encoded into oAuthAPIServerConfig struct
 func getStructuredConfig(authOperatorSpec operatorv1.OperatorSpec) (*oAuthAPIServerConfig, error) {
-	unstructuredCfg, err := unstructuredConfigFrom(authOperatorSpec.ObservedConfig.Raw)
+	unstructuredCfg, err := common.UnstructuredConfigFrom(authOperatorSpec.ObservedConfig.Raw, oauthapi.OAuthAPIServerConfigPrefix)
 	if err != nil {
 		return nil, err
 	}
 
-	unstructuredUnsupportedCfg, err := unstructuredConfigFrom(authOperatorSpec.UnsupportedConfigOverrides.Raw)
+	unstructuredUnsupportedCfg, err := common.UnstructuredConfigFrom(authOperatorSpec.UnsupportedConfigOverrides.Raw, oauthapi.OAuthAPIServerConfigPrefix)
 	if err != nil {
 		return nil, err
 	}
@@ -260,13 +238,32 @@ func getStructuredConfig(authOperatorSpec operatorv1.OperatorSpec) (*oAuthAPISer
 		return nil, err
 	}
 
-	cfg := &oAuthAPIServerConfig{}
-	if err := json.Unmarshal(unstructuredMergedCfg, cfg); err != nil {
+	type unstructuredOAuthAPIServerConfig struct {
+		APIServerArguments map[string]interface{} `json:"apiServerArguments"`
+	}
+
+	cfgUnstructured := &unstructuredOAuthAPIServerConfig{}
+	if err := json.Unmarshal(unstructuredMergedCfg, cfgUnstructured); err != nil {
 		return nil, err
 	}
 
-	if cfg.APIServerArguments == nil {
-		cfg.APIServerArguments = map[string][]string{}
+	cfg := &oAuthAPIServerConfig{}
+	cfg.APIServerArguments = map[string][]string{}
+	for k, v := range cfgUnstructured.APIServerArguments {
+		var strSlice []string
+		var found bool
+		var err error
+
+		strSlice, found, err = unstructured.NestedStringSlice(cfgUnstructured.APIServerArguments, k)
+		if !found || err != nil {
+			str, found, err := unstructured.NestedString(cfgUnstructured.APIServerArguments, k)
+			if !found || err != nil {
+				return nil, fmt.Errorf("unable to create OAuthConfig, incorrect value %v under %v key, expected []string or string", v, k)
+			}
+			strSlice = append(strSlice, str)
+		}
+
+		cfg.APIServerArguments[k] = strSlice
 	}
 
 	return cfg, nil

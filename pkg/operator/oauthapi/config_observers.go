@@ -12,8 +12,8 @@ const (
 func OauthAPIServerObservers() []configobserver.ObserveConfigFunc {
 	oauthAPIServerObservers := []configobserver.ObserveConfigFunc{}
 	for _, o := range []configobserver.ObserveConfigFunc{
-		apiserver.ObserveAdditionalCORSAllowedOrigins,
-		apiserver.ObserveTLSSecurityProfile,
+		apiserver.ObserveAdditionalCORSAllowedOriginsToArguments,
+		apiserver.ObserveTLSSecurityProfileToArguments,
 	} {
 		oauthAPIServerObservers = append(oauthAPIServerObservers, configobserver.WithPrefix(o, OAuthAPIServerConfigPrefix))
 	}

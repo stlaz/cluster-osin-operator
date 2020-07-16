@@ -33,6 +33,9 @@ func NewAPIServicesToManage(
 }
 
 // GetAPIServicesToManage returns the desired list of API Services that will be managed by this operator
+// Note that at the moment the returned list is dynamic and depends on authOperator.Status.ManagingOAuthAPIServer field
+//
+// TODO: change this function in 4.7 to return initial/full/authoritative list of APIs to manage
 func (a *APIServicesToManage) GetAPIServicesToManage() ([]*apiregistrationv1.APIService, error) {
 	newAPIServicesToManage := a.apiServicesToManage
 

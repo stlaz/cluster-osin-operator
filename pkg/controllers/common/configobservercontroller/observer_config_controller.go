@@ -35,7 +35,7 @@ func NewConfigObserver(
 		kubeInformersForNamespaces: kubeInformersForNamespaces,
 		configInformer:             configInformer,
 		resourceSyncer:             resourceSyncer,
-		eventRecorder: eventRecorder,
+		eventRecorder:              eventRecorder,
 	}
 
 	c.interestingNamespaces = []string{
@@ -94,4 +94,3 @@ func (c *ConfigObserverController) ToController() factory.Controller {
 		c.configObservers...,
 	)
 }
-

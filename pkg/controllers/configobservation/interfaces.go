@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	OAuthServerConfigPrefix    = "oauthServer"
+	OAuthServerConfigPrefix = "oauthServer"
 )
 
 func OauthServerObservers() []configobserver.ObserveConfigFunc {

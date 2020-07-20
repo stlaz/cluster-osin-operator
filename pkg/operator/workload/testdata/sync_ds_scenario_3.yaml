@@ -51,8 +51,8 @@ spec:
                 --shutdown-delay-duration=3s \
                 --tls-private-key-file=/var/run/secrets/serving-cert/tls.key \
                 --tls-cert-file=/var/run/secrets/serving-cert/tls.crt \
-                --cors-allowed-origins=//127\.0\.0\.1(:|$) \
-              --cors-allowed-origins=//localhost(:|$) \
+                --cors-allowed-origins='//127\.0\.0\.1(:|$)' \
+              --cors-allowed-origins='//localhost(:|$)' \
               --tls-cipher-suites=TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305 \
               --tls-min-version=VersionTLS13 \
               --v=2

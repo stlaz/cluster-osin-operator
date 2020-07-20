@@ -8,12 +8,12 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/openshift/cluster-authentication-operator/pkg/controllers/common"
-	"github.com/openshift/cluster-authentication-operator/pkg/operator/oauthapi"
 	operatorv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/apiserver-library-go/pkg/configflags"
 	operatorconfigclient "github.com/openshift/client-go/operator/clientset/versioned/typed/operator/v1"
+	"github.com/openshift/cluster-authentication-operator/pkg/controllers/common"
 	"github.com/openshift/cluster-authentication-operator/pkg/operator/assets"
+	"github.com/openshift/cluster-authentication-operator/pkg/operator/oauthapi"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcehash"
@@ -21,12 +21,20 @@ import (
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
 	"github.com/openshift/library-go/pkg/operator/status"
 
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes"
 )
+
+// shellEscapePattern determines if a string should be enclosed in single quotes
+// so that it can safely be passed to shell command line.
+var shellEscapePattern *regexp.Regexp
+
+func init() {
+	shellEscapePattern = regexp.MustCompile(`[^\w@%+=:,./-]`)
+}
 
 // nodeCountFunction a function to return count of nodes
 type nodeCountFunc func(nodeSelector map[string]string) (*int32, error)
@@ -249,21 +257,26 @@ func getStructuredConfig(authOperatorSpec operatorv1.OperatorSpec) (*oAuthAPISer
 
 	cfg := &oAuthAPIServerConfig{}
 	cfg.APIServerArguments = map[string][]string{}
-	for k, v := range cfgUnstructured.APIServerArguments {
-		var strSlice []string
+	for argName, argRawValue := range cfgUnstructured.APIServerArguments {
+		var argsSlice []string
 		var found bool
 		var err error
 
-		strSlice, found, err = unstructured.NestedStringSlice(cfgUnstructured.APIServerArguments, k)
+		argsSlice, found, err = unstructured.NestedStringSlice(cfgUnstructured.APIServerArguments, argName)
 		if !found || err != nil {
-			str, found, err := unstructured.NestedString(cfgUnstructured.APIServerArguments, k)
+			str, found, err := unstructured.NestedString(cfgUnstructured.APIServerArguments, argName)
 			if !found || err != nil {
-				return nil, fmt.Errorf("unable to create OAuthConfig, incorrect value %v under %v key, expected []string or string", v, k)
+				return nil, fmt.Errorf("unable to create OAuthConfig, incorrect value %v under %v key, expected []string or string", argRawValue, argName)
 			}
-			strSlice = append(strSlice, str)
+			argsSlice = append(argsSlice, str)
 		}
 
-		cfg.APIServerArguments[k] = strSlice
+		escapedArgsSlice := make([]string, len(argsSlice))
+		for index, str := range argsSlice {
+			escapedArgsSlice[index] = maybeQuote(str)
+		}
+
+		cfg.APIServerArguments[argName] = escapedArgsSlice
 	}
 
 	return cfg, nil
@@ -282,4 +295,19 @@ func loglevelToKlog(logLevel operatorv1.LogLevel) string {
 	default:
 		return "2"
 	}
+}
+
+// maybeQuote returns a shell-escaped version of the string s. The returned value
+// is a string that can safely be used as one token in a shell command line.
+//
+// note: this method was copied from https://github.com/alessio/shellescape/blob/0d13ae33b78a20a5d91c54ca7e216e1b75aaedef/shellescape.go#L30
+func maybeQuote(s string) string {
+	if len(s) == 0 {
+		return "''"
+	}
+	if shellEscapePattern.MatchString(s) {
+		return "'" + strings.Replace(s, "'", "'\"'\"'", -1) + "'"
+	}
+
+	return s
 }

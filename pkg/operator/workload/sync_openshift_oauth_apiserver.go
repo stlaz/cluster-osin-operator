@@ -3,11 +3,13 @@ package workload
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
 
+	"k8s.io/klog"
 	operatorv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/apiserver-library-go/pkg/configflags"
 	operatorconfigclient "github.com/openshift/client-go/operator/clientset/versioned/typed/operator/v1"
@@ -86,17 +88,20 @@ func NewOAuthAPIServerWorkload(
 
 // PreconditionFulfilled is a function that indicates whether all prerequisites are met and we can Sync.
 func (c *OAuthAPIServerWorkload) PreconditionFulfilled() (bool, error) {
-	// TODO: block until config is obvserved when required
-	/*if operatorCfg, err := getStructuredConfig(authOperator.Spec.OperatorSpec); err != nil {
-		errs = append(errs, err)
-		return nil, errs
-	} else {
-		if len(operatorCfg.APIServerArguments) == 0 {
-			klog.Info("Waiting for observed configuration to be available")
-			errs = append(errs, errors.New("waiting for observed configuration to be available (spec.ObservedConfig.Raw)"))
-			return nil, errs
-		}
-	}*/
+	authOperator, err := c.operatorClient.Authentications().Get(context.TODO(), "cluster", metav1.GetOptions{})
+	if err != nil {
+		return false, err
+	}
+
+	operatorCfg, err := getStructuredConfig(authOperator.Spec.OperatorSpec)
+	if err != nil {
+		return false, err
+	}
+
+	if len(operatorCfg.APIServerArguments) == 0 {
+		klog.Info("Waiting for observed configuration to be available")
+		return false, errors.New("waiting for observed configuration to be available (haven't found APIServerArguments in spec.ObservedConfig.Raw)")
+	}
 	return true, nil
 }
 

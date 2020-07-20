@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"strings"
 
-	"k8s.io/klog"
 	operatorv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/apiserver-library-go/pkg/configflags"
 	operatorconfigclient "github.com/openshift/client-go/operator/clientset/versioned/typed/operator/v1"
@@ -22,6 +21,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
 	"github.com/openshift/library-go/pkg/operator/status"
+	"k8s.io/klog"
 
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

@@ -207,7 +207,6 @@ spec:
               --audit-log-maxsize=100 \
               --audit-log-maxbackup=10 \
               --audit-policy-file=/var/run/configmaps/config/audit-policy.yaml \
-              --etcd-servers=https://etcd.openshift-etcd.svc:2379 \
               --etcd-cafile=/var/run/configmaps/etcd-serving-ca/ca-bundle.crt \
               --etcd-keyfile=/var/run/secrets/etcd-client/tls.key \
               --etcd-certfile=/var/run/secrets/etcd-client/tls.crt \

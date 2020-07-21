@@ -30,6 +30,7 @@ import (
 	"github.com/openshift/library-go/pkg/controller/controllercmd"
 	workloadcontroller "github.com/openshift/library-go/pkg/operator/apiserver/controller/workload"
 	apiservercontrollerset "github.com/openshift/library-go/pkg/operator/apiserver/controllerset"
+	libgoetcd "github.com/openshift/library-go/pkg/operator/configobserver/etcd"
 	"github.com/openshift/library-go/pkg/operator/encryption/controllers/migrators"
 	encryptiondeployer "github.com/openshift/library-go/pkg/operator/encryption/deployer"
 	"github.com/openshift/library-go/pkg/operator/loglevel"
@@ -109,6 +110,7 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		"openshift-authentication-operator",
 		"", // an informer for non-namespaced resources
 		"kube-system",
+		libgoetcd.EtcdEndpointNamespace,
 	)
 
 	// short resync period as this drives the check frequency when checking the .well-known endpoint. 20 min is too slow for that.
@@ -535,6 +537,7 @@ func prepareOauthAPIServerOperator(ctx context.Context, controllerContext *contr
 
 	configObserver := oauthapiconfigobservercontroller.NewConfigObserverController(
 		operatorCtx.operatorClient,
+		operatorCtx.kubeInformersForNamespaces,
 		operatorCtx.operatorConfigInformer,
 		operatorCtx.resourceSyncController,
 		controllerContext.EventRecorder,

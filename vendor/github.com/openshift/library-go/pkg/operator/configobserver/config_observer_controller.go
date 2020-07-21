@@ -45,8 +45,11 @@ type ConfigObserver struct {
 	observers []ObserveConfigFunc
 
 	operatorClient v1helpers.OperatorClient
+
 	// listers are used by config observers to retrieve necessary resources
 	listers Listers
+
+	nestedConfigPath []string
 }
 
 func NewConfigObserver(
@@ -56,10 +59,31 @@ func NewConfigObserver(
 	informers []factory.Informer,
 	observers ...ObserveConfigFunc,
 ) factory.Controller {
+	return NewNestedConfigObserver(
+		operatorClient,
+		eventRecorder,
+		listers,
+		informers,
+		nil,
+		observers...,
+	)
+}
+
+// NewNestedConfigObserver creates a config observer that watches changes to a nested field (nestedConfigPath) in the config.
+// Useful when the config is shared across multiple controllers in the same process.
+func NewNestedConfigObserver(
+	operatorClient v1helpers.OperatorClient,
+	eventRecorder events.Recorder,
+	listers Listers,
+	informers []factory.Informer,
+	nestedConfigPath []string,
+	observers ...ObserveConfigFunc,
+) factory.Controller {
 	c := &ConfigObserver{
-		operatorClient: operatorClient,
-		observers:      observers,
-		listers:        listers,
+		operatorClient:   operatorClient,
+		observers:        observers,
+		listers:          listers,
+		nestedConfigPath: nestedConfigPath,
 	}
 
 	return factory.New().ResyncEvery(time.Second).WithSync(c.sync).WithInformers(append(informers, listersToInformer(listers)...)...).ToController("ConfigObserver", eventRecorder.WithComponentSuffix("config-observer"))
@@ -107,14 +131,8 @@ func (c ConfigObserver) sync(ctx context.Context, syncCtx factory.SyncContext) e
 		errs = append(errs, errors.New("non-deterministic config observation detected"))
 	}
 
-	if !equality.Semantic.DeepEqual(existingConfig, mergedObservedConfig) {
-		syncCtx.Recorder().Eventf("ObservedConfigChanged", "Writing updated observed config: %v", diff.ObjectDiff(existingConfig, mergedObservedConfig))
-		if _, _, err := v1helpers.UpdateSpec(c.operatorClient, v1helpers.UpdateObservedConfigFn(mergedObservedConfig)); err != nil {
-			// At this point we failed to write the updated config. If we are permanently broken, do not pile the errors from observers
-			// but instead reset the errors and only report single error condition.
-			errs = []error{fmt.Errorf("error writing updated observed config: %v", err)}
-			syncCtx.Recorder().Warningf("ObservedConfigWriteError", "Failed to write observed config: %v", err)
-		}
+	if err := c.updateObservedConfig(syncCtx, existingConfig, mergedObservedConfig); err != nil {
+		errs = []error{err}
 	}
 	configError := v1helpers.NewMultiLineAggregate(errs)
 
@@ -133,6 +151,50 @@ func (c ConfigObserver) sync(ctx context.Context, syncCtx factory.SyncContext) e
 	}
 
 	return configError
+}
+
+func (c ConfigObserver) updateObservedConfig(syncCtx factory.SyncContext, existingConfig map[string]interface{}, mergedObservedConfig map[string]interface{}) error {
+	existingConfigMaybeNested := map[string]interface{}{}
+	mergedObservedConfigMaybeNested := map[string]interface{}{}
+	if len(c.nestedConfigPath) > 0 {
+		existingConfigNested, _, err := unstructured.NestedMap(existingConfig, c.nestedConfigPath...)
+		if err != nil {
+			return fmt.Errorf("unable to extract the config under %v key, err %v", c.nestedConfigPath, err)
+		}
+		mergedObservedConfigNested, _, err := unstructured.NestedMap(mergedObservedConfig, c.nestedConfigPath...)
+		if err != nil {
+			return fmt.Errorf("unable to extract the merged config under %v, err %v", c.nestedConfigPath, err)
+		}
+		mergedObservedConfigMaybeNested = mergedObservedConfigNested
+		existingConfigMaybeNested = existingConfigNested
+	} else {
+		existingConfigMaybeNested = existingConfig
+		mergedObservedConfigMaybeNested = mergedObservedConfig
+	}
+
+	if !equality.Semantic.DeepEqual(existingConfigMaybeNested, mergedObservedConfigMaybeNested) {
+		syncCtx.Recorder().Eventf("ObservedConfigChanged", "Writing updated observed config: %v", diff.ObjectDiff(existingConfigMaybeNested, mergedObservedConfigMaybeNested))
+
+		updatedConfig := map[string]interface{}{}
+		if len(c.nestedConfigPath) > 0 {
+			updatedConfig = existingConfig
+			if err := unstructured.SetNestedField(updatedConfig, mergedObservedConfigMaybeNested, c.nestedConfigPath...); err != nil {
+				syncCtx.Recorder().Warningf("ObservedConfigWriteError", "Failed to write nested observed config: %v", err)
+				return fmt.Errorf("error writing nested observed config: %v", err)
+			}
+		} else {
+			updatedConfig = mergedObservedConfigMaybeNested
+		}
+
+		if _, _, err := v1helpers.UpdateSpec(c.operatorClient, v1helpers.UpdateObservedConfigFn(updatedConfig)); err != nil {
+			// At this point we failed to write the updated config. If we are permanently broken, do not pile the errors from observers
+			// but instead reset the errors and only report single error condition.
+			syncCtx.Recorder().Warningf("ObservedConfigWriteError", "Failed to write observed config: %v", err)
+			return fmt.Errorf("error writing updated observed config: %v", err)
+		}
+	}
+
+	return nil
 }
 
 // listersToInformer converts the Listers interface to informer with empty AddEventHandler as we only care about synced caches in the Run.
@@ -156,8 +218,7 @@ func (l *listerInformer) HasSynced() bool {
 	return l.cacheSynced()
 }
 
-// WithPrefix adds a prefix to the path the input observer would otherwise
-// observe into
+// WithPrefix adds a prefix to the path the input observer would otherwise observe into
 func WithPrefix(observer ObserveConfigFunc, prefix ...string) ObserveConfigFunc {
 	if len(prefix) == 0 {
 		return observer

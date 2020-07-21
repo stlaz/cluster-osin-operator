@@ -145,8 +145,11 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		return err
 	}
 
+	configOverridesController := unsupportedconfigoverridescontroller.NewUnsupportedConfigOverridesController(operatorCtx.operatorClient, controllerContext.EventRecorder)
+	logLevelController := loglevel.NewClusterOperatorLoggingController(operatorCtx.operatorClient, controllerContext.EventRecorder)
+
 	operatorCtx.informersToRunFunc = append(operatorCtx.informersToRunFunc, kubeInformersForNamespaces.Start, authOperatorConfigInformers.Start, operatorCtx.operatorConfigInformer.Start)
-	operatorCtx.controllersToRunFunc = append(operatorCtx.controllersToRunFunc, resourceSyncer.Run)
+	operatorCtx.controllersToRunFunc = append(operatorCtx.controllersToRunFunc, resourceSyncer.Run, configOverridesController.Run, logLevelController.Run)
 
 	for _, informerToRunFn := range operatorCtx.informersToRunFunc {
 		informerToRunFn(ctx.Done())
@@ -261,9 +264,6 @@ func prepareOauthOperator(controllerContext *controllercmd.ControllerContext, op
 		controllerContext.EventRecorder,
 	)
 
-	configOverridesController := unsupportedconfigoverridescontroller.NewUnsupportedConfigOverridesController(operatorCtx.operatorClient, controllerContext.EventRecorder)
-	logLevelController := loglevel.NewClusterOperatorLoggingController(operatorCtx.operatorClient, controllerContext.EventRecorder)
-
 	routerCertsController := routercerts.NewRouterCertsDomainValidationController(
 		operatorCtx.operatorClient,
 		controllerContext.EventRecorder,
@@ -354,9 +354,7 @@ func prepareOauthOperator(controllerContext *controllercmd.ControllerContext, op
 	operatorCtx.controllersToRunFunc = append(operatorCtx.controllersToRunFunc,
 		clusterOperatorStatus.Run,
 		configObserver.Run,
-		configOverridesController.Run,
 		deploymentController.Run,
-		logLevelController.Run,
 		managementStateController.Run,
 		metadataController.Run,
 		payloadConfigController.Run,

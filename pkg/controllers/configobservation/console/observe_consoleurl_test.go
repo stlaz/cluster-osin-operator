@@ -12,7 +12,7 @@ import (
 	configlistersv1 "github.com/openshift/client-go/config/listers/config/v1"
 	"github.com/openshift/library-go/pkg/operator/events"
 
-	"github.com/openshift/cluster-authentication-operator/pkg/controllers/common/configobservercontroller"
+	"github.com/openshift/cluster-authentication-operator/pkg/controllers/configobservation"
 )
 
 func TestObserveConsoleURL(t *testing.T) {
@@ -69,7 +69,7 @@ func TestObserveConsoleURL(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			listers := configobservercontroller.Listers{
+			listers := configobservation.Listers{
 				ConsoleLister: configlistersv1.NewConsoleLister(indexer),
 			}
 

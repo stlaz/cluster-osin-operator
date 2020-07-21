@@ -14,7 +14,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
 
-	"github.com/openshift/cluster-authentication-operator/pkg/controllers/common/configobservercontroller"
+	"github.com/openshift/cluster-authentication-operator/pkg/controllers/configobservation"
 	"github.com/openshift/cluster-authentication-operator/pkg/operator/datasync"
 )
 
@@ -24,7 +24,7 @@ func ObserveTemplates(genericlisters configobserver.Listers, recorder events.Rec
 		ret = configobserver.Pruned(ret, templatesPath)
 	}()
 
-	listers := genericlisters.(configobservercontroller.Listers)
+	listers := genericlisters.(configobservation.Listers)
 	errs = []error{}
 
 	existingTemplates, _, err := unstructured.NestedFieldCopy(existingConfig, templatesPath...)

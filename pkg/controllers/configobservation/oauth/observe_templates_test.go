@@ -13,7 +13,7 @@ import (
 	configlistersv1 "github.com/openshift/client-go/config/listers/config/v1"
 	"github.com/openshift/library-go/pkg/operator/events"
 
-	"github.com/openshift/cluster-authentication-operator/pkg/controllers/common/configobservercontroller"
+	"github.com/openshift/cluster-authentication-operator/pkg/controllers/configobservation"
 )
 
 func TestObserveTemplates(t *testing.T) {
@@ -82,7 +82,7 @@ func TestObserveTemplates(t *testing.T) {
 				}
 			}
 			syncerData := map[string]string{}
-			listers := configobservercontroller.Listers{
+			listers := configobservation.Listers{
 				OAuthLister:     configlistersv1.NewOAuthLister(indexer),
 				ConfigMapLister: corelistersv1.NewConfigMapLister(indexer),
 				ResourceSync:    &mockResourceSyncer{t: t, synced: syncerData},

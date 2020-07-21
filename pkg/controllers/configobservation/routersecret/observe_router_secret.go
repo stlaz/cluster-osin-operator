@@ -9,7 +9,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/configobserver"
 	"github.com/openshift/library-go/pkg/operator/events"
 
-	"github.com/openshift/cluster-authentication-operator/pkg/controllers/common/configobservercontroller"
+	"github.com/openshift/cluster-authentication-operator/pkg/controllers/configobservation"
 )
 
 func ObserveRouterSecret(genericlisters configobserver.Listers, recorder events.Recorder, existingConfig map[string]interface{}) (ret map[string]interface{}, _ []error) {
@@ -18,7 +18,7 @@ func ObserveRouterSecret(genericlisters configobserver.Listers, recorder events.
 		ret = configobserver.Pruned(ret, namedCertificatesPath)
 	}()
 
-	listers := genericlisters.(configobservercontroller.Listers)
+	listers := genericlisters.(configobservation.Listers)
 	errs := []error{}
 
 	routerSecret, err := listers.SecretsLister.Secrets("openshift-authentication").Get("v4-0-config-system-router-certs")

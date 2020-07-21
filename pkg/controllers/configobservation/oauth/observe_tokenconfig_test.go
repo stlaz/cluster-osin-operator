@@ -12,7 +12,7 @@ import (
 	configlistersv1 "github.com/openshift/client-go/config/listers/config/v1"
 	"github.com/openshift/library-go/pkg/operator/events"
 
-	"github.com/openshift/cluster-authentication-operator/pkg/controllers/common/configobservercontroller"
+	"github.com/openshift/cluster-authentication-operator/pkg/controllers/configobservation"
 )
 
 func TestObserveTokenConfig(t *testing.T) {
@@ -164,7 +164,7 @@ func TestObserveTokenConfig(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			listers := configobservercontroller.Listers{
+			listers := configobservation.Listers{
 				OAuthLister: configlistersv1.NewOAuthLister(indexer),
 			}
 			got, errs := ObserveTokenConfig(listers, events.NewInMemoryRecorder(t.Name()), tt.previouslyObservedConfig)

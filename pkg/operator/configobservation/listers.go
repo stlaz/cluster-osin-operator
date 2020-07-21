@@ -1,17 +1,23 @@
 package configobservation
 
 import (
+	corelistersv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
 	configlistersv1 "github.com/openshift/client-go/config/listers/config/v1"
 	"github.com/openshift/library-go/pkg/operator/configobserver"
+	libgoetcd "github.com/openshift/library-go/pkg/operator/configobserver/etcd"
 	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
 )
 
 var _ configobserver.Listers = Listers{}
+var _ libgoetcd.ConfigmapLister = Listers{}
+var _ libgoetcd.EndpointsLister = Listers{}
 
 type Listers struct {
 	APIServerLister_ configlistersv1.APIServerLister
+	ConfigMapLister_ corelistersv1.ConfigMapLister
+	EndpointsLister_ corelistersv1.EndpointsLister
 
 	ResourceSync       resourcesynccontroller.ResourceSyncer
 	PreRunCachesSynced []cache.InformerSynced
@@ -28,4 +34,12 @@ func (l Listers) ResourceSyncer() resourcesynccontroller.ResourceSyncer {
 
 func (l Listers) PreRunHasSynced() []cache.InformerSynced {
 	return l.PreRunCachesSynced
+}
+
+func (l Listers) ConfigmapLister() corelistersv1.ConfigMapLister {
+	return l.ConfigMapLister_
+}
+
+func (l Listers) EndpointsLister() corelistersv1.EndpointsLister {
+	return l.EndpointsLister_
 }

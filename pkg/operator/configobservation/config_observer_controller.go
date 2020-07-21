@@ -44,7 +44,7 @@ func NewConfigObserverController(
 			configobserver.WithPrefix(o, OAuthAPIServerConfigPrefix))
 	}
 
-	return configobserver.NewConfigObserver(
+	return configobserver.NewNestedConfigObserver(
 		operatorClient,
 		eventRecorder,
 		Listers{
@@ -53,6 +53,7 @@ func NewConfigObserverController(
 			PreRunCachesSynced: preRunCacheSynced,
 		},
 		informers,
+		[]string{OAuthAPIServerConfigPrefix},
 		observers...,
 	)
 }

@@ -1,7 +1,6 @@
 package configobservation
 
 import (
-	corelistersv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 
 	configlistersv1 "github.com/openshift/client-go/config/listers/config/v1"
@@ -11,23 +10,14 @@ import (
 
 var _ configobserver.Listers = Listers{}
 
-const (
-	OAuthServerConfigPrefix = "oauthServer"
-)
-
 type Listers struct {
-	SecretsLister   corelistersv1.SecretLister
-	ConfigMapLister corelistersv1.ConfigMapLister
-
-	APIServerLister_     configlistersv1.APIServerLister
-	ConsoleLister        configlistersv1.ConsoleLister
-	InfrastructureLister configlistersv1.InfrastructureLister
-	OAuthLister          configlistersv1.OAuthLister
+	APIServerLister_ configlistersv1.APIServerLister
 
 	ResourceSync       resourcesynccontroller.ResourceSyncer
 	PreRunCachesSynced []cache.InformerSynced
 }
 
+// APIServerLister used by ObserveAdditionalCORSAllowedOriginsToArguments and ObserveTLSSecurityProfileToArguments,
 func (l Listers) APIServerLister() configlistersv1.APIServerLister {
 	return l.APIServerLister_
 }

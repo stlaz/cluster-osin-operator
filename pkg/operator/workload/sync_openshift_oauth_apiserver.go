@@ -14,7 +14,7 @@ import (
 	operatorconfigclient "github.com/openshift/client-go/operator/clientset/versioned/typed/operator/v1"
 	"github.com/openshift/cluster-authentication-operator/pkg/controllers/common"
 	"github.com/openshift/cluster-authentication-operator/pkg/operator/assets"
-	"github.com/openshift/cluster-authentication-operator/pkg/operator/oauthapi"
+	oauthapiconfigobserver "github.com/openshift/cluster-authentication-operator/pkg/operator/configobservation"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcehash"
@@ -232,12 +232,12 @@ type oAuthAPIServerConfig struct {
 
 // merged config is then encoded into oAuthAPIServerConfig struct
 func getStructuredConfig(authOperatorSpec operatorv1.OperatorSpec) (*oAuthAPIServerConfig, error) {
-	unstructuredCfg, err := common.UnstructuredConfigFrom(authOperatorSpec.ObservedConfig.Raw, oauthapi.OAuthAPIServerConfigPrefix)
+	unstructuredCfg, err := common.UnstructuredConfigFrom(authOperatorSpec.ObservedConfig.Raw, oauthapiconfigobserver.OAuthAPIServerConfigPrefix)
 	if err != nil {
 		return nil, err
 	}
 
-	unstructuredUnsupportedCfg, err := common.UnstructuredConfigFrom(authOperatorSpec.UnsupportedConfigOverrides.Raw, oauthapi.OAuthAPIServerConfigPrefix)
+	unstructuredUnsupportedCfg, err := common.UnstructuredConfigFrom(authOperatorSpec.UnsupportedConfigOverrides.Raw, oauthapiconfigobserver.OAuthAPIServerConfigPrefix)
 	if err != nil {
 		return nil, err
 	}

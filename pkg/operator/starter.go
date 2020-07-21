@@ -54,6 +54,7 @@ import (
 	"github.com/openshift/cluster-authentication-operator/pkg/controllers/targetversion"
 	"github.com/openshift/cluster-authentication-operator/pkg/operator/apiservices"
 	"github.com/openshift/cluster-authentication-operator/pkg/operator/assets"
+	oauthapiconfigobservercontroller "github.com/openshift/cluster-authentication-operator/pkg/operator/configobservation"
 	"github.com/openshift/cluster-authentication-operator/pkg/operator/encryptionprovider"
 	"github.com/openshift/cluster-authentication-operator/pkg/operator/revisionclient"
 	"github.com/openshift/cluster-authentication-operator/pkg/operator/workload"
@@ -534,7 +535,14 @@ func prepareOauthAPIServerOperator(ctx context.Context, controllerContext *contr
 		operatorCtx.operatorClient.Informers,
 		eventRecorder)
 
-	operatorCtx.controllersToRunFunc = append(operatorCtx.controllersToRunFunc, func(ctx context.Context, _ int) { apiServerControllers.Run(ctx) }, manageOAuthAPIController.Run)
+	configObserver := oauthapiconfigobservercontroller.NewConfigObserverController(
+		operatorCtx.operatorClient,
+		operatorCtx.operatorConfigInformer,
+		operatorCtx.resourceSyncController,
+		controllerContext.EventRecorder,
+	)
+
+	operatorCtx.controllersToRunFunc = append(operatorCtx.controllersToRunFunc, func(ctx context.Context, _ int) { apiServerControllers.Run(ctx) }, manageOAuthAPIController.Run, configObserver.Run)
 	operatorCtx.informersToRunFunc = append(operatorCtx.informersToRunFunc, apiregistrationInformers.Start, migrationInformer.Start)
 	return nil
 }

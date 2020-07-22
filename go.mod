@@ -30,7 +30,7 @@ require (
 
 replace (
 	github.com/kubernetes-sigs/kube-storage-version-migrator => github.com/openshift/kubernetes-kube-storage-version-migrator v0.0.3-0.20200312103335-32e07ea4f8ca
-	github.com/openshift/library-go => /Users/lszaszki/go/src/github.com/openshift/library-go
+	github.com/openshift/library-go => github.com/p0lyn0mial/library-go v0.0.0-20200722123906-5862e194e3e2
 	k8s.io/api => k8s.io/api v0.18.3
 	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.18.3
 	k8s.io/apimachinery => k8s.io/apimachinery v0.18.3

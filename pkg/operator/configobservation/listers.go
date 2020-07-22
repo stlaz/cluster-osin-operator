@@ -18,6 +18,7 @@ type Listers struct {
 	APIServerLister_ configlistersv1.APIServerLister
 	ConfigMapLister_ corelistersv1.ConfigMapLister
 	EndpointsLister_ corelistersv1.EndpointsLister
+	SecretLister_    corelistersv1.SecretLister
 
 	ResourceSync       resourcesynccontroller.ResourceSyncer
 	PreRunCachesSynced []cache.InformerSynced
@@ -42,4 +43,8 @@ func (l Listers) ConfigMapLister() corelistersv1.ConfigMapLister {
 
 func (l Listers) EndpointsLister() corelistersv1.EndpointsLister {
 	return l.EndpointsLister_
+}
+
+func (l Listers) SecretLister() corelistersv1.SecretLister {
+	return l.SecretLister_
 }

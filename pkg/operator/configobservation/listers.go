@@ -11,13 +11,14 @@ import (
 )
 
 var _ configobserver.Listers = Listers{}
-var _ libgoetcd.ConfigmapLister = Listers{}
+var _ libgoetcd.ConfigMapLister = Listers{}
 var _ libgoetcd.EndpointsLister = Listers{}
 
 type Listers struct {
 	APIServerLister_ configlistersv1.APIServerLister
 	ConfigMapLister_ corelistersv1.ConfigMapLister
 	EndpointsLister_ corelistersv1.EndpointsLister
+	SecretLister_    corelistersv1.SecretLister
 
 	ResourceSync       resourcesynccontroller.ResourceSyncer
 	PreRunCachesSynced []cache.InformerSynced
@@ -36,10 +37,14 @@ func (l Listers) PreRunHasSynced() []cache.InformerSynced {
 	return l.PreRunCachesSynced
 }
 
-func (l Listers) ConfigmapLister() corelistersv1.ConfigMapLister {
+func (l Listers) ConfigMapLister() corelistersv1.ConfigMapLister {
 	return l.ConfigMapLister_
 }
 
 func (l Listers) EndpointsLister() corelistersv1.EndpointsLister {
 	return l.EndpointsLister_
+}
+
+func (l Listers) SecretLister() corelistersv1.SecretLister {
+	return l.SecretLister_
 }

@@ -49,6 +49,7 @@ import (
 	"github.com/openshift/cluster-authentication-operator/pkg/controllers/ingressstate"
 	"github.com/openshift/cluster-authentication-operator/pkg/controllers/metadata"
 	"github.com/openshift/cluster-authentication-operator/pkg/controllers/payload"
+	prune "github.com/openshift/cluster-authentication-operator/pkg/controllers/prunecontroller"
 	"github.com/openshift/cluster-authentication-operator/pkg/controllers/readiness"
 	"github.com/openshift/cluster-authentication-operator/pkg/controllers/routercerts"
 	"github.com/openshift/cluster-authentication-operator/pkg/controllers/serviceca"
@@ -528,6 +529,15 @@ func prepareOauthAPIServerOperator(ctx context.Context, controllerContext *contr
 		return err
 	}
 
+	pruneController := prune.NewPruneController(
+		"openshift-oauth-apiserver",
+		[]string{"encryption-config-"},
+		operatorCtx.kubeClient.CoreV1(),
+		operatorCtx.kubeClient.CoreV1(),
+		operatorCtx.kubeInformersForNamespaces,
+		eventRecorder,
+	)
+
 	manageOAuthAPIController := apiservices.NewManageAPIServicesController(
 		"MangeOAuthAPIController",
 		deployer,
@@ -543,7 +553,12 @@ func prepareOauthAPIServerOperator(ctx context.Context, controllerContext *contr
 		controllerContext.EventRecorder,
 	)
 
-	operatorCtx.controllersToRunFunc = append(operatorCtx.controllersToRunFunc, func(ctx context.Context, _ int) { apiServerControllers.Run(ctx) }, manageOAuthAPIController.Run, configObserver.Run)
+	operatorCtx.controllersToRunFunc = append(operatorCtx.controllersToRunFunc,
+		configObserver.Run,
+		manageOAuthAPIController.Run,
+		pruneController.Run,
+		func(ctx context.Context, _ int) { apiServerControllers.Run(ctx) },
+	)
 	operatorCtx.informersToRunFunc = append(operatorCtx.informersToRunFunc, apiregistrationInformers.Start, migrationInformer.Start)
 	return nil
 }

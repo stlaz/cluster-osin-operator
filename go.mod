@@ -3,6 +3,7 @@ module github.com/openshift/cluster-authentication-operator
 go 1.13
 
 require (
+	github.com/coreos/etcd v3.3.15+incompatible
 	github.com/davecgh/go-spew v1.1.1
 	github.com/getsentry/raven-go v0.2.1-0.20190513200303-c977f96e1095 // indirect
 	github.com/ghodss/yaml v1.0.0
@@ -16,6 +17,7 @@ require (
 	github.com/spf13/cobra v1.0.0
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.4.0
+	google.golang.org/grpc v1.27.0
 	gopkg.in/square/go-jose.v2 v2.2.2
 	gopkg.in/yaml.v2 v2.3.0
 	k8s.io/api v0.19.0-rc.2
@@ -30,6 +32,8 @@ require (
 
 replace (
 	github.com/kubernetes-sigs/kube-storage-version-migrator => github.com/openshift/kubernetes-kube-storage-version-migrator v0.0.3-0.20200312103335-32e07ea4f8ca
+	go.etcd.io/etcd => go.etcd.io/etcd v0.0.0-20191023171146-3cf2f69b5738 // 3cf2f69b5738 is the SHA for git tag v3.4.3
+	google.golang.org/grpc => google.golang.org/grpc v1.26.0
 	k8s.io/api => k8s.io/api v0.19.0-rc.2
 	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.19.0-rc.2
 	k8s.io/apimachinery => k8s.io/apimachinery v0.19.0-rc.2

@@ -25,7 +25,6 @@ import (
 	pb "go.etcd.io/etcd/etcdserver/etcdserverpb"
 	mvccpb "go.etcd.io/etcd/mvcc/mvccpb"
 
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -617,10 +616,7 @@ func (w *watchGrpcStream) run() {
 					},
 				}
 				req := &pb.WatchRequest{RequestUnion: cr}
-				lg.Info("sending watch cancel request for failed dispatch", zap.Int64("watch-id", pbresp.WatchId))
-				if err := wc.Send(req); err != nil {
-					lg.Warning("failed to send watch cancel request", zap.Int64("watch-id", pbresp.WatchId), zap.Error(err))
-				}
+				wc.Send(req)
 			}
 
 		// watch client failed on Recv; spawn another if possible
@@ -641,21 +637,6 @@ func (w *watchGrpcStream) run() {
 			return
 
 		case ws := <-w.closingc:
-			if ws.id != -1 {
-				// client is closing an established watch; close it on the server proactively instead of waiting
-				// to close when the next message arrives
-				cancelSet[ws.id] = struct{}{}
-				cr := &pb.WatchRequest_CancelRequest{
-					CancelRequest: &pb.WatchCancelRequest{
-						WatchId: ws.id,
-					},
-				}
-				req := &pb.WatchRequest{RequestUnion: cr}
-				lg.Info("sending watch cancel request for closed watcher", zap.Int64("watch-id", ws.id))
-				if err := wc.Send(req); err != nil {
-					lg.Warning("failed to send watch cancel request", zap.Int64("watch-id", ws.id), zap.Error(err))
-				}
-			}
 			w.closeSubstream(ws)
 			delete(closing, ws)
 			// no more watchers on this stream, shutdown

@@ -2,6 +2,7 @@ package workload
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -191,6 +192,13 @@ func (c *OAuthAPIServerWorkload) syncDeployment(authOperator *operatorv1.Authent
 	if err != nil {
 		return nil, fmt.Errorf("invalid dependency reference: %q", err)
 	}
+
+	apiServerArgsJson, err := json.Marshal(operatorCfg.APIServerArguments)
+	if err != nil {
+		return nil, fmt.Errorf("unable to marshal api server arguments back to json, err = %v", err)
+	}
+	apiServerArgsHash := fmt.Sprintf("%x", sha256.Sum256(apiServerArgsJson))
+	inputHashes["openshift-oauth-apiserver.arguments"] = apiServerArgsHash
 
 	for k, v := range inputHashes {
 		annotationKey := fmt.Sprintf("operator.openshift.io/dep-%s", k)

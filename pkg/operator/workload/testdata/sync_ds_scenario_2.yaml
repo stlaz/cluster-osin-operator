@@ -5,6 +5,7 @@ metadata:
     openshiftapiservers.operator.openshift.io/operator-pull-spec: ""
     openshiftapiservers.operator.openshift.io/pull-spec: ""
     openshiftapiservers.operator.openshift.io/replicas: "1"
+    "operator.openshift.io/dep-openshift-oauth-apiserver.arguments": "c7a86c5613dc27baefbca7fd41f8453ea88a4b2fffd623b7d4df02fe89f62210"
     "operator.openshift.io/pull-spec": ""
   creationTimestamp: ~
   labels:
@@ -27,6 +28,8 @@ spec:
         apiserver: "true"
         app: openshift-oauth-apiserver
         revision: '0'
+      annotations:
+        "operator.openshift.io/dep-openshift-oauth-apiserver.arguments": "c7a86c5613dc27baefbca7fd41f8453ea88a4b2fffd623b7d4df02fe89f62210"
       name: openshift-oauth-apiserver
     spec:
       containers:

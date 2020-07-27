@@ -7,10 +7,12 @@ import (
 	configlistersv1 "github.com/openshift/client-go/config/listers/config/v1"
 	"github.com/openshift/library-go/pkg/operator/configobserver"
 	libgoetcd "github.com/openshift/library-go/pkg/operator/configobserver/etcd"
+	encryptobserver "github.com/openshift/library-go/pkg/operator/encryption/observer"
 	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
 )
 
 var _ configobserver.Listers = Listers{}
+var _ encryptobserver.SecretsListers = Listers{}
 var _ libgoetcd.ConfigMapLister = Listers{}
 var _ libgoetcd.EndpointsLister = Listers{}
 

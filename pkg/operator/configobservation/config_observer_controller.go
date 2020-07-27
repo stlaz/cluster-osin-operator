@@ -72,6 +72,7 @@ func NewConfigObserverController(
 			APIServerLister_:   configInformer.Config().V1().APIServers().Lister(),
 			ConfigMapLister_:   kubeInformersForNamespaces.ConfigMapLister(),
 			EndpointsLister_:   kubeInformersForNamespaces.InformersFor(libgoetcd.EtcdEndpointNamespace).Core().V1().Endpoints().Lister(),
+			SecretLister_:      kubeInformersForNamespaces.SecretLister(),
 			ResourceSync:       resourceSyncer,
 			PreRunCachesSynced: preRunCacheSynced,
 		},

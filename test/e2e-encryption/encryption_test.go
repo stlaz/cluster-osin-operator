@@ -20,12 +20,16 @@ import (
 var DefaultTargetGRs = []schema.GroupResource{
 	{Group: "oauth.openshift.io", Resource: "oauthaccesstokens"},
 	{Group: "oauth.openshift.io", Resource: "oauthauthorizetokens"},
+	// TODO: remove route in 4.7, in 4.6 OAS-O is managing the encryption configuration for CAO
+	{Group: "route.openshift.io", Resource: "routes"},
 }
 
 func TestEncryptionTypeIdentity(t *testing.T) {
 	library.TestEncryptionTypeIdentity(t, library.BasicScenario{
 		Namespace:                       "openshift-config-managed",
-		LabelSelector:                   "encryption.apiserver.operator.openshift.io/component" + "=" + "openshift-oauth-apiserver",
+		// TODO: update the LabelSelector in 4.7, in 4.6 OAS-O is managing the encryption configuration for CAO
+		// LabelSelector:                "encryption.apiserver.operator.openshift.io/component" + "=" + "openshift-oauth-apiserver"
+		LabelSelector:                   "encryption.apiserver.operator.openshift.io/component" + "=" + "openshift-apiserver",
 		EncryptionConfigSecretName:      fmt.Sprintf("encryption-config-openshift-oauth-apiserver"),
 		EncryptionConfigSecretNamespace: "openshift-config-managed",
 		OperatorNamespace:               "openshift-authentication-operator",
@@ -37,7 +41,9 @@ func TestEncryptionTypeIdentity(t *testing.T) {
 func TestEncryptionTypeUnset(t *testing.T) {
 	library.TestEncryptionTypeUnset(t, library.BasicScenario{
 		Namespace:                       "openshift-config-managed",
-		LabelSelector:                   "encryption.apiserver.operator.openshift.io/component" + "=" + "openshift-oauth-apiserver",
+		// TODO: update the LabelSelector in 4.7, in 4.6 OAS-O is managing the encryption configuration for CAO
+		// LabelSelector:                "encryption.apiserver.operator.openshift.io/component" + "=" + "openshift-oauth-apiserver"
+		LabelSelector:                   "encryption.apiserver.operator.openshift.io/component" + "=" + "openshift-apiserver",
 		EncryptionConfigSecretName:      fmt.Sprintf("encryption-config-openshift-oauth-apiserver"),
 		EncryptionConfigSecretNamespace: "openshift-config-managed",
 		OperatorNamespace:               "openshift-authentication-operator",
@@ -50,7 +56,9 @@ func TestEncryptionTurnOnAndOff(t *testing.T) {
 	library.TestEncryptionTurnOnAndOff(t, library.OnOffScenario{
 		BasicScenario: library.BasicScenario{
 			Namespace:                       "openshift-config-managed",
-			LabelSelector:                   "encryption.apiserver.operator.openshift.io/component" + "=" + "openshift-oauth-apiserver",
+			// TODO: update the LabelSelector in 4.7, in 4.6 OAS-O is managing the encryption configuration for CAO
+			// LabelSelector:                "encryption.apiserver.operator.openshift.io/component" + "=" + "openshift-oauth-apiserver"
+			LabelSelector:                   "encryption.apiserver.operator.openshift.io/component" + "=" + "openshift-apiserver",
 			EncryptionConfigSecretName:      fmt.Sprintf("encryption-config-openshift-oauth-apiserver"),
 			EncryptionConfigSecretNamespace: "openshift-config-managed",
 			OperatorNamespace:               "openshift-authentication-operator",
@@ -74,7 +82,9 @@ func TestEncryptionRotation(t *testing.T) {
 	library.TestEncryptionRotation(t, library.RotationScenario{
 		BasicScenario: library.BasicScenario{
 			Namespace:                       "openshift-config-managed",
-			LabelSelector:                   "encryption.apiserver.operator.openshift.io/component" + "=" + "openshift-oauth-apiserver",
+			// TODO: update the LabelSelector in 4.7, in 4.6 OAS-O is managing the encryption configuration for CAO
+			// LabelSelector:                "encryption.apiserver.operator.openshift.io/component" + "=" + "openshift-oauth-apiserver"
+			LabelSelector:                   "encryption.apiserver.operator.openshift.io/component" + "=" + "openshift-apiserver",
 			EncryptionConfigSecretName:      fmt.Sprintf("encryption-config-openshift-oauth-apiserver"),
 			EncryptionConfigSecretNamespace: "openshift-config-managed",
 			OperatorNamespace:               "openshift-authentication-operator",

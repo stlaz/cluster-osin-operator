@@ -8,7 +8,7 @@ require (
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-bindata/go-bindata v3.1.2+incompatible
 	github.com/kubernetes-sigs/kube-storage-version-migrator v0.0.0-20191127225502-51849bc15f17
-	github.com/openshift/api v0.0.0-20200722170803-0ba2c3658da6
+	github.com/openshift/api v0.0.0-20200723134351-89de68875e7c
 	github.com/openshift/apiserver-library-go v0.0.0-20200521171520-a7bc13e3e650
 	github.com/openshift/build-machinery-go v0.0.0-20200713135615-1f43d26dccc7
 	github.com/openshift/client-go v0.0.0-20200722173614-5a1b0aaeff15

@@ -517,12 +517,17 @@ func prepareOauthAPIServerOperator(ctx context.Context, controllerContext *contr
 		operatorCtx.configClient.ConfigV1().APIServers(),
 		operatorCtx.operatorConfigInformer.Config().V1().APIServers(),
 		operatorCtx.kubeInformersForNamespaces,
+	).WithFinalizerController(
+		"openshift-oauth-apiserver",
+		operatorCtx.kubeInformersForNamespaces.InformersFor("openshift-oauth-apiserver"),
+		operatorCtx.kubeClient.CoreV1(),
+	).WithSecretRevisionPruneController(
+		"openshift-oauth-apiserver",
+		[]string{"encryption-config-"},
+		operatorCtx.kubeClient.CoreV1(),
+		operatorCtx.kubeClient.CoreV1(),
+		operatorCtx.kubeInformersForNamespaces,
 	).
-		WithFinalizerController(
-			"openshift-oauth-apiserver",
-			operatorCtx.kubeInformersForNamespaces.InformersFor("openshift-oauth-apiserver"),
-			operatorCtx.kubeClient.CoreV1(),
-		).
 		WithoutClusterOperatorStatusController().
 		WithoutLogLevelController().
 		WithoutConfigUpgradableController().

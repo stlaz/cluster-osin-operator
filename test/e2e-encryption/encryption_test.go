@@ -25,6 +25,8 @@ var DefaultTargetGRs = []schema.GroupResource{
 }
 
 func TestEncryptionTypeIdentity(t *testing.T) {
+	// TODO: bring back when https://github.com/openshift/cluster-openshift-apiserver-operator/pull/348 is merged
+	t.Skip()
 	library.TestEncryptionTypeIdentity(t, library.BasicScenario{
 		Namespace:                       "openshift-config-managed",
 		// TODO: update the LabelSelector in 4.7, in 4.6 OAS-O is managing the encryption configuration for CAO
@@ -39,6 +41,8 @@ func TestEncryptionTypeIdentity(t *testing.T) {
 }
 
 func TestEncryptionTypeUnset(t *testing.T) {
+	// TODO: bring back when https://github.com/openshift/cluster-openshift-apiserver-operator/pull/348 is merged
+	t.Skip()
 	library.TestEncryptionTypeUnset(t, library.BasicScenario{
 		Namespace:                       "openshift-config-managed",
 		// TODO: update the LabelSelector in 4.7, in 4.6 OAS-O is managing the encryption configuration for CAO
@@ -53,6 +57,8 @@ func TestEncryptionTypeUnset(t *testing.T) {
 }
 
 func TestEncryptionTurnOnAndOff(t *testing.T) {
+	// TODO: bring back when https://github.com/openshift/cluster-openshift-apiserver-operator/pull/348 is merged
+	t.Skip()
 	library.TestEncryptionTurnOnAndOff(t, library.OnOffScenario{
 		BasicScenario: library.BasicScenario{
 			Namespace:                       "openshift-config-managed",
@@ -78,6 +84,8 @@ func TestEncryptionTurnOnAndOff(t *testing.T) {
 // TestEncryptionRotation first encrypts data with aescbc key
 // then it forces a key rotation by setting the "encyrption.Reason" in the operator's configuration file
 func TestEncryptionRotation(t *testing.T) {
+	// TODO: bring back when https://github.com/openshift/cluster-openshift-apiserver-operator/pull/348 is merged
+	t.Skip()
 	ctx := context.TODO()
 	library.TestEncryptionRotation(t, library.RotationScenario{
 		BasicScenario: library.BasicScenario{

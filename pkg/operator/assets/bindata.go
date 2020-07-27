@@ -213,7 +213,6 @@ spec:
               --shutdown-delay-duration=3s \
               --tls-private-key-file=/var/run/secrets/serving-cert/tls.key \
               --tls-cert-file=/var/run/secrets/serving-cert/tls.crt \
-              --encryption-provider-config=/var/run/secrets/encryption-config \
               ${FLAGS}
         resources:
           requests:

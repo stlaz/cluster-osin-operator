@@ -351,19 +351,11 @@ func prepareOauthOperator(controllerContext *controllercmd.ControllerContext, op
 		controllerContext.EventRecorder,
 	)
 
-	systemCABundle, err := ioutil.ReadFile("/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem")
-	if err != nil {
-		// this may fail route-health checks in proxy environments
-		klog.Warningf("Unable to read system CA from /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem: %v", err)
-	}
 	targetVersionController := targetversion.NewTargetVersionController(
 		operatorCtx.kubeInformersForNamespaces.InformersFor("openshift-authentication"),
-		operatorCtx.operatorConfigInformer,
-		routeInformersNamespaced.Route().V1().Routes(),
 		oauthClient.OauthV1().OAuthClients(),
 		operatorCtx.operatorClient,
 		operatorCtx.versionRecorder,
-		systemCABundle,
 		controllerContext.EventRecorder,
 	)
 
@@ -373,6 +365,11 @@ func prepareOauthOperator(controllerContext *controllercmd.ControllerContext, op
 		controllerContext.EventRecorder,
 		operatorCtx.kubeInformersForNamespaces.InformersFor("").Core().V1().Nodes(),
 	)
+	systemCABundle, err := ioutil.ReadFile("/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem")
+	if err != nil {
+		// this may fail route-health checks in proxy environments
+		klog.Warningf("Unable to read system CA from /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem: %v", err)
+	}
 
 	authRouteCheckController := oauthendpoints.NewOAuthRouteCheckController(
 		operatorCtx.operatorClient,

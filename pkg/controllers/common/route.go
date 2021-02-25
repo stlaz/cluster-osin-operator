@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"os"
 
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/klog/v2"
 
 	configv1 "github.com/openshift/api/config/v1"
@@ -123,15 +123,16 @@ func CheckRouteHealthy(route *routev1.Route, routerSecret *corev1.Secret, system
 
 func GetOAuthServerRoute(routeLister routev1lister.RouteLister, conditionPrefix string) (*routev1.Route, []operatorv1.OperatorCondition) {
 	route, err := routeLister.Routes("openshift-authentication").Get("oauth-openshift")
-	if err != nil && os.IsNotExist(err) {
-		return nil, []operatorv1.OperatorCondition{{
-			Type:    conditionPrefix + "Degraded",
-			Status:  operatorv1.ConditionTrue,
-			Reason:  "NotFound",
-			Message: fmt.Sprintf("The OAuth server route not found: %v", err),
-		}}
-	}
 	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil, []operatorv1.OperatorCondition{{
+				Type:    conditionPrefix + "Degraded",
+				Status:  operatorv1.ConditionTrue,
+				Reason:  "NotFound",
+				Message: fmt.Sprintf("The OAuth server route not found: %v", err),
+			}}
+		}
+
 		return nil, []operatorv1.OperatorCondition{
 			{
 				Type:    conditionPrefix + "Degraded",

@@ -2,15 +2,14 @@ package operator
 
 import (
 	"context"
-	"io/ioutil"
 	"os"
 	"time"
 
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/klog/v2"
 	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 	apiregistrationclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 	apiregistrationinformers "k8s.io/kube-aggregator/pkg/client/informers/externalversions"
@@ -62,7 +61,6 @@ import (
 	"github.com/openshift/cluster-authentication-operator/pkg/controllers/readiness"
 	"github.com/openshift/cluster-authentication-operator/pkg/controllers/routercerts"
 	"github.com/openshift/cluster-authentication-operator/pkg/controllers/serviceca"
-	"github.com/openshift/cluster-authentication-operator/pkg/controllers/targetversion"
 	"github.com/openshift/cluster-authentication-operator/pkg/controllers/webhookauthenticator"
 	"github.com/openshift/cluster-authentication-operator/pkg/operator/assets"
 	oauthapiconfigobservercontroller "github.com/openshift/cluster-authentication-operator/pkg/operator/configobservation"
@@ -140,8 +138,21 @@ func RunOperator(ctx context.Context, controllerContext *controllercmd.Controlle
 		controllerContext.EventRecorder,
 	)
 
+	versionRecorder := status.NewVersionGetter()
+	clusterOperator, err := configClient.ConfigV1().ClusterOperators().Get(ctx, "authentication", metav1.GetOptions{})
+	if err != nil && !errors.IsNotFound(err) {
+		return err
+	}
+	// perform version changes to the version getter prior to tying it up in the status controller
+	// via change-notification channel so that it only updates operator version in status once
+	// either of the workloads synces
+	for _, version := range clusterOperator.Status.Versions {
+		versionRecorder.SetVersion(version.Name, version.Version)
+	}
+	versionRecorder.SetVersion("operator", os.Getenv("OPERATOR_IMAGE_VERSION"))
+
 	operatorCtx := &operatorContext{}
-	operatorCtx.versionRecorder = status.NewVersionGetter()
+	operatorCtx.versionRecorder = versionRecorder
 	operatorCtx.kubeClient = kubeClient
 	operatorCtx.configClient = configClient
 	operatorCtx.kubeInformersForNamespaces = kubeInformersForNamespaces
@@ -241,9 +252,18 @@ func prepareOauthOperator(controllerContext *controllercmd.ControllerContext, op
 
 	staleConditions := staleconditions.NewRemoveStaleConditionsController(
 		[]string{
+			// condition types removed in 4.8
 			"OAuthServerIngressConfigDegraded",
 			"OAuthServerProxyDegraded",
 			"OAuthServerRouteDegraded",
+			"OAuthVersionDeploymentAvailable",
+			"OAuthVersionDeploymentProgressing",
+			"OAuthVersionDeploymentDegraded",
+			"OAuthVersionRouteDegraded",
+			"OAuthVersionRouteProgressing",
+			"OAuthVersionRouteAvailable",
+			"OAuthVersionRouteSecretDegraded",
+			"OAuthVersionIngressConfigDegraded",
 		},
 		operatorCtx.operatorClient,
 		controllerContext.EventRecorder,
@@ -353,22 +373,6 @@ func prepareOauthOperator(controllerContext *controllercmd.ControllerContext, op
 		operatorCtx.kubeInformersForNamespaces.InformersFor("openshift-authentication"),
 	)
 
-	systemCABundle, err := ioutil.ReadFile("/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem")
-	if err != nil {
-		// this may fail route-health checks in proxy environments
-		klog.Warningf("Unable to read system CA from /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem: %v", err)
-	}
-	targetVersionController := targetversion.NewTargetVersionController(
-		operatorCtx.kubeInformersForNamespaces.InformersFor("openshift-authentication"),
-		operatorCtx.operatorConfigInformer,
-		routeInformersNamespaced.Route().V1().Routes(),
-		oauthClient.OauthV1().OAuthClients(),
-		operatorCtx.operatorClient,
-		operatorCtx.versionRecorder,
-		systemCABundle,
-		controllerContext.EventRecorder,
-	)
-
 	workersAvailableController := ingressnodesavailable.NewIngressNodesAvailableController(
 		operatorCtx.operatorClient,
 		operatorCtx.operatorInformer.Operator().V1().IngressControllers(),
@@ -429,7 +433,6 @@ func prepareOauthOperator(controllerContext *controllercmd.ControllerContext, op
 		routerCertsController.Run,
 		serviceCAController.Run,
 		staticResourceController.Run,
-		targetVersionController.Run,
 		wellKnownReadyController.Run,
 		authRouteCheckController.Run,
 		authServiceCheckController.Run,

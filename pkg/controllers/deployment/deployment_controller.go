@@ -2,8 +2,6 @@ package deployment
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/base64"
 	"fmt"
 	"os"
 	"strings"
@@ -21,25 +19,19 @@ import (
 	"k8s.io/klog/v2"
 
 	configv1 "github.com/openshift/api/config/v1"
-	oauthv1 "github.com/openshift/api/oauth/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
 	configv1client "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 	configinformer "github.com/openshift/client-go/config/informers/externalversions"
 	configv1listers "github.com/openshift/client-go/config/listers/config/v1"
-	oauthv1client "github.com/openshift/client-go/oauth/clientset/versioned/typed/oauth/v1"
 	operatorv1client "github.com/openshift/client-go/operator/clientset/versioned/typed/operator/v1"
-	routeinformer "github.com/openshift/client-go/route/informers/externalversions"
-	routev1lister "github.com/openshift/client-go/route/listers/route/v1"
 	bootstrap "github.com/openshift/library-go/pkg/authentication/bootstrapauthenticator"
 	"github.com/openshift/library-go/pkg/controller/factory"
-	"github.com/openshift/library-go/pkg/oauth/oauthdiscovery"
 	"github.com/openshift/library-go/pkg/operator/apiserver/controller/workload"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
 	"github.com/openshift/library-go/pkg/operator/status"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
-	"github.com/openshift/library-go/pkg/route/routeapihelpers"
 )
 
 var _ workload.Delegate = &oauthServerDeploymentSyncer{}
@@ -60,15 +52,12 @@ type oauthServerDeploymentSyncer struct {
 	// one pod of a given replicaset from landing on a node.
 	ensureAtMostOnePodPerNode ensureAtMostOnePodPerNodeFunc
 
-	deployments       appsv1client.DeploymentsGetter
-	oauthClientClient oauthv1client.OAuthClientInterface
-	auth              operatorv1client.AuthenticationsGetter
+	deployments appsv1client.DeploymentsGetter
+	auth        operatorv1client.AuthenticationsGetter
 
 	configMapLister corev1listers.ConfigMapLister
 	secretLister    corev1listers.SecretLister
 	podsLister      corev1listers.PodLister
-	routeLister     routev1lister.RouteLister
-	ingressLister   configv1listers.IngressLister
 	proxyLister     configv1listers.ProxyLister
 
 	bootstrapUserDataGetter    bootstrap.BootstrapUserDataGetter
@@ -81,9 +70,7 @@ func NewOAuthServerWorkloadController(
 	ensureAtMostOnePodPerNode ensureAtMostOnePodPerNodeFunc,
 	kubeClient kubernetes.Interface,
 	nodeInformer coreinformers.NodeInformer,
-	oauthClientClient oauthv1client.OAuthClientInterface,
 	openshiftClusterConfigClient configv1client.ClusterOperatorInterface,
-	routeInformer routeinformer.SharedInformerFactory,
 	configInformers configinformer.SharedInformerFactory,
 	authOperatorGetter operatorv1client.AuthenticationsGetter,
 	bootstrapUserDataGetter bootstrap.BootstrapUserDataGetter,
@@ -99,15 +86,12 @@ func NewOAuthServerWorkloadController(
 		countNodes:                countNodes,
 		ensureAtMostOnePodPerNode: ensureAtMostOnePodPerNode,
 
-		oauthClientClient: oauthClientClient,
-		deployments:       kubeClient.AppsV1(),
-		auth:              authOperatorGetter,
+		deployments: kubeClient.AppsV1(),
+		auth:        authOperatorGetter,
 
 		configMapLister: kubeInformersForTargetNamespace.Core().V1().ConfigMaps().Lister(),
 		secretLister:    kubeInformersForTargetNamespace.Core().V1().Secrets().Lister(),
-		routeLister:     routeInformer.Route().V1().Routes().Lister(),
 		podsLister:      kubeInformersForTargetNamespace.Core().V1().Pods().Lister(),
-		ingressLister:   configInformers.Config().V1().Ingresses().Lister(),
 		proxyLister:     configInformers.Config().V1().Proxies().Lister(),
 
 		bootstrapUserDataGetter: bootstrapUserDataGetter,
@@ -141,7 +125,6 @@ func NewOAuthServerWorkloadController(
 			kubeInformersForTargetNamespace.Core().V1().Secrets().Informer(),
 			kubeInformersForTargetNamespace.Core().V1().Pods().Informer(),
 			kubeInformersForTargetNamespace.Core().V1().Namespaces().Informer(),
-			routeInformer.Route().V1().Routes().Informer(),
 		},
 		oauthDeploymentSyncer,
 		openshiftClusterConfigClient,
@@ -162,22 +145,8 @@ func (c *oauthServerDeploymentSyncer) Sync(ctx context.Context, syncContext fact
 		return nil, false, append(errs, err)
 	}
 
-	ingress, err := c.getIngressConfig()
-	if err != nil {
-		return nil, false, append(errs, err)
-	}
-
-	routeHost, err := c.getCanonicalRouteHost(ingress.Spec.Domain)
-	if err != nil {
-		return nil, false, append(errs, err)
-	}
-
 	proxyConfig, err := c.getProxyConfig()
 	if err != nil {
-		return nil, false, append(errs, err)
-	}
-
-	if err := c.ensureBootstrappedOAuthClients(ctx, "https://"+routeHost); err != nil {
 		return nil, false, append(errs, err)
 	}
 
@@ -240,20 +209,6 @@ func (c *oauthServerDeploymentSyncer) Sync(ctx context.Context, syncContext fact
 	return deployment, true, errs
 }
 
-func (c *oauthServerDeploymentSyncer) getCanonicalRouteHost(ingressConfigDomain string) (string, error) {
-	route, err := c.routeLister.Routes("openshift-authentication").Get("oauth-openshift")
-	if err != nil {
-		return "", err
-	}
-
-	expectedHost := "oauth-openshift." + ingressConfigDomain
-	routeHost, _, err := routeapihelpers.IngressURI(route, expectedHost)
-	if err != nil {
-		return "", err
-	}
-	return routeHost.Host, nil
-}
-
 func (c *oauthServerDeploymentSyncer) getProxyConfig() (*configv1.Proxy, error) {
 	proxyConfig, err := c.proxyLister.Get("cluster")
 	if err != nil {
@@ -294,44 +249,6 @@ func (c *oauthServerDeploymentSyncer) getConfigResourceVersions() ([]string, err
 	return configRVs, nil
 }
 
-func randomBits(bits int) []byte {
-	size := bits / 8
-	if bits%8 != 0 {
-		size++
-	}
-	b := make([]byte, size)
-	if _, err := rand.Read(b); err != nil {
-		panic(err) // rand should never fail
-	}
-	return b
-}
-
-func (c *oauthServerDeploymentSyncer) ensureBootstrappedOAuthClients(ctx context.Context, masterPublicURL string) error {
-	browserClient := oauthv1.OAuthClient{
-		ObjectMeta:            metav1.ObjectMeta{Name: "openshift-browser-client"},
-		Secret:                base64.RawURLEncoding.EncodeToString(randomBits(256)),
-		RespondWithChallenges: false,
-		RedirectURIs:          []string{oauthdiscovery.OpenShiftOAuthTokenDisplayURL(masterPublicURL)},
-		GrantMethod:           oauthv1.GrantHandlerAuto,
-	}
-	if err := ensureOAuthClient(ctx, c.oauthClientClient, browserClient); err != nil {
-		return fmt.Errorf("unable to get %q bootstrapped OAuth client: %v", browserClient.Name, err)
-	}
-
-	cliClient := oauthv1.OAuthClient{
-		ObjectMeta:            metav1.ObjectMeta{Name: "openshift-challenging-client"},
-		Secret:                "",
-		RespondWithChallenges: true,
-		RedirectURIs:          []string{oauthdiscovery.OpenShiftOAuthTokenImplicitURL(masterPublicURL)},
-		GrantMethod:           oauthv1.GrantHandlerAuto,
-	}
-	if err := ensureOAuthClient(ctx, c.oauthClientClient, cliClient); err != nil {
-		return fmt.Errorf("unable to get %q bootstrapped CLI OAuth client: %v", browserClient.Name, err)
-	}
-
-	return nil
-}
-
 // updateOperatorDeploymentInfo updates the operator's Status .ReadyReplicas, .Generation and the
 // .Generetions field with data about the oauth-server deployment
 func (c *oauthServerDeploymentSyncer) updateOperatorDeploymentInfo(
@@ -365,15 +282,4 @@ func (c *oauthServerDeploymentSyncer) updateOperatorDeploymentInfo(
 		}
 	}
 	return nil
-}
-
-func (c *oauthServerDeploymentSyncer) getIngressConfig() (*configv1.Ingress, error) {
-	ingress, err := c.ingressLister.Get("cluster")
-	if err != nil {
-		return nil, fmt.Errorf("unable to get cluster ingress config: %v", err)
-	}
-	if len(ingress.Spec.Domain) == 0 {
-		return nil, fmt.Errorf("the ingress config domain cannot be empty")
-	}
-	return ingress, nil
 }

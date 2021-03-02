@@ -616,7 +616,12 @@ metadata:
   labels:
     app: oauth-openshift
 spec:
-  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      # make sure at least one pod is always active in HA clusters
+      maxUnavailable: 2
+      maxSurge: 0
   selector:
     matchLabels:
       app: oauth-openshift

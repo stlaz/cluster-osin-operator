@@ -237,23 +237,9 @@ func prepareOauthOperator(controllerContext *controllercmd.ControllerContext, op
 
 	staleConditions := staleconditions.NewRemoveStaleConditionsController(
 		[]string{
-			// in 4.1.0 this was accidentally in the list.  This can be removed in 4.3.
-			"Degraded",
-
-			// As of 4.4, this will appear as a configObserver error
-			"FailedRouterSecret",
-
-			// As of 4.6, this will appear as a configObserver error
-			"IdentityProviderConfigDegraded",
-
-			"WellKnownEndpointDegraded",
-			"WellKnownRouteDegraded",
-			"WellKnownAuthConfigDegraded",
-			"WellKnownProgressing",
-			"OperatorSyncDegraded",
-			"RouteHealthDegraded",
-			"RouteStatusDegraded",
-			"OAuthServerAvailable",
+			"OAuthServerIngressConfigDegraded",
+			"OAuthServerProxyDegraded",
+			"OAuthServerRouteDegraded",
 		},
 		operatorCtx.operatorClient,
 		controllerContext.EventRecorder,
@@ -339,16 +325,18 @@ func prepareOauthOperator(controllerContext *controllercmd.ControllerContext, op
 		controllerContext.EventRecorder,
 	)
 
-	deploymentController := deployment.NewDeploymentController(
-		operatorCtx.kubeInformersForNamespaces.InformersFor("openshift-authentication"),
+	deploymentController := deployment.NewOAuthServerWorkloadController(
+		operatorCtx.kubeClient,
+		oauthClient.OauthV1().OAuthClients(),
+		operatorCtx.operatorClient,
+		operatorCtx.configClient.ConfigV1().ClusterOperators(),
 		routeInformersNamespaced,
 		operatorCtx.operatorConfigInformer,
-		operatorCtx.operatorClient,
 		operatorCtx.operatorClient.Client,
-		oauthClient.OauthV1().OAuthClients(),
-		operatorCtx.kubeClient.AppsV1(),
 		bootstrapauthenticator.NewBootstrapUserDataGetter(operatorCtx.kubeClient.CoreV1(), operatorCtx.kubeClient.CoreV1()),
 		controllerContext.EventRecorder,
+		operatorCtx.versionRecorder,
+		operatorCtx.kubeInformersForNamespaces.InformersFor("openshift-authentication"),
 	)
 
 	systemCABundle, err := ioutil.ReadFile("/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem")

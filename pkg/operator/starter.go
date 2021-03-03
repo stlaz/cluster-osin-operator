@@ -9,6 +9,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	certinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
@@ -62,6 +63,7 @@ import (
 	"github.com/openshift/cluster-authentication-operator/pkg/controllers/serviceca"
 	"github.com/openshift/cluster-authentication-operator/pkg/controllers/targetversion"
 	"github.com/openshift/cluster-authentication-operator/pkg/controllers/webhookauthenticator"
+	"github.com/openshift/cluster-authentication-operator/pkg/controllers/webhookcerts"
 	"github.com/openshift/cluster-authentication-operator/pkg/operator/assets"
 	oauthapiconfigobservercontroller "github.com/openshift/cluster-authentication-operator/pkg/operator/configobservation"
 	"github.com/openshift/cluster-authentication-operator/pkg/operator/revisionclient"
@@ -462,6 +464,8 @@ func prepareOauthAPIServerOperator(ctx context.Context, controllerContext *contr
 	}
 	apiregistrationInformers := apiregistrationinformers.NewSharedInformerFactory(apiregistrationv1Client, 10*time.Minute)
 
+	kubeInformers := certinformers.NewSharedInformerFactory(operatorCtx.kubeClient, resync)
+
 	nodeProvider := encryptiondeployer.NewDeploymentNodeProvider("openshift-oauth-apiserver", operatorCtx.kubeInformersForNamespaces)
 	deployer, err := encryptiondeployer.NewRevisionLabelPodDeployer("revision", "openshift-oauth-apiserver", operatorCtx.kubeInformersForNamespaces, operatorCtx.resourceSyncController, operatorCtx.kubeClient.CoreV1(), operatorCtx.kubeClient.CoreV1(), nodeProvider)
 	if err != nil {
@@ -598,6 +602,7 @@ func prepareOauthAPIServerOperator(ctx context.Context, controllerContext *contr
 
 	webhookAuthController := webhookauthenticator.NewWebhookAuthenticatorController(
 		operatorCtx.kubeInformersForNamespaces.InformersFor("openshift-oauth-apiserver"),
+		operatorCtx.kubeInformersForNamespaces.InformersFor("openshift-authentication-operator"),
 		operatorCtx.operatorConfigInformer,
 		operatorCtx.kubeClient.CoreV1(),
 		operatorCtx.kubeClient.CoreV1(),
@@ -607,12 +612,34 @@ func prepareOauthAPIServerOperator(ctx context.Context, controllerContext *contr
 		eventRecorder,
 	)
 
+	authenticatorCertRequester := webhookcerts.NewWebhookAuthenticatorCertRequester(
+		operatorCtx.operatorClient,
+		operatorCtx.kubeClient.CertificatesV1().CertificateSigningRequests(),
+		kubeInformers.Certificates().V1().CertificateSigningRequests(),
+		operatorCtx.kubeClient.CoreV1().Secrets("openshift-oauth-apiserver"),
+		operatorCtx.kubeInformersForNamespaces.InformersFor("openshift-oauth-apiserver").Core().V1().Secrets(),
+		eventRecorder,
+	)
+
+	webhookCertsApprover := webhookcerts.NewCSRApproverController(
+		operatorCtx.operatorClient,
+		operatorCtx.kubeClient.CertificatesV1().CertificateSigningRequests(),
+		kubeInformers.Certificates().V1().CertificateSigningRequests(),
+		eventRecorder,
+	)
+
 	operatorCtx.controllersToRunFunc = append(operatorCtx.controllersToRunFunc,
+		authenticatorCertRequester.Run,
 		configObserver.Run,
 		webhookAuthController.Run,
+		webhookCertsApprover.Run,
 		func(ctx context.Context, _ int) { apiServerControllers.Run(ctx) },
 	)
-	operatorCtx.informersToRunFunc = append(operatorCtx.informersToRunFunc, apiregistrationInformers.Start, migrationInformer.Start)
+	operatorCtx.informersToRunFunc = append(operatorCtx.informersToRunFunc,
+		apiregistrationInformers.Start,
+		kubeInformers.Start,
+		migrationInformer.Start,
+	)
 	return nil
 }
 

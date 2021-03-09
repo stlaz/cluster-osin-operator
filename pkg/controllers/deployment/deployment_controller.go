@@ -15,15 +15,15 @@ import (
 	"k8s.io/client-go/kubernetes"
 	appsv1client "k8s.io/client-go/kubernetes/typed/apps/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
-	"k8s.io/client-go/util/retry"
 	"k8s.io/klog/v2"
 
 	configv1 "github.com/openshift/api/config/v1"
-	operatorv1 "github.com/openshift/api/operator/v1"
 	configv1client "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 	configinformer "github.com/openshift/client-go/config/informers/externalversions"
 	configv1listers "github.com/openshift/client-go/config/listers/config/v1"
 	operatorv1client "github.com/openshift/client-go/operator/clientset/versioned/typed/operator/v1"
+	routeinformers "github.com/openshift/client-go/route/informers/externalversions"
+	routev1listers "github.com/openshift/client-go/route/listers/route/v1"
 	bootstrap "github.com/openshift/library-go/pkg/authentication/bootstrapauthenticator"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/apiserver/controller/workload"
@@ -32,6 +32,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
 	"github.com/openshift/library-go/pkg/operator/status"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
+	"github.com/openshift/library-go/pkg/route/routeapihelpers"
 )
 
 var _ workload.Delegate = &oauthServerDeploymentSyncer{}
@@ -59,6 +60,7 @@ type oauthServerDeploymentSyncer struct {
 	secretLister    corev1listers.SecretLister
 	podsLister      corev1listers.PodLister
 	proxyLister     configv1listers.ProxyLister
+	routeLister     routev1listers.RouteLister
 
 	bootstrapUserDataGetter    bootstrap.BootstrapUserDataGetter
 	bootstrapUserChangeRollOut bool
@@ -72,6 +74,7 @@ func NewOAuthServerWorkloadController(
 	nodeInformer coreinformers.NodeInformer,
 	openshiftClusterConfigClient configv1client.ClusterOperatorInterface,
 	configInformers configinformer.SharedInformerFactory,
+	routeInformers routeinformers.SharedInformerFactory,
 	authOperatorGetter operatorv1client.AuthenticationsGetter,
 	bootstrapUserDataGetter bootstrap.BootstrapUserDataGetter,
 	eventsRecorder events.Recorder,
@@ -93,6 +96,7 @@ func NewOAuthServerWorkloadController(
 		secretLister:    kubeInformersForTargetNamespace.Core().V1().Secrets().Lister(),
 		podsLister:      kubeInformersForTargetNamespace.Core().V1().Pods().Lister(),
 		proxyLister:     configInformers.Config().V1().Proxies().Lister(),
+		routeLister:     routeInformers.Route().V1().Routes().Lister(),
 
 		bootstrapUserDataGetter: bootstrapUserDataGetter,
 	}
@@ -125,6 +129,7 @@ func NewOAuthServerWorkloadController(
 			kubeInformersForTargetNamespace.Core().V1().Secrets().Informer(),
 			kubeInformersForTargetNamespace.Core().V1().Pods().Informer(),
 			kubeInformersForTargetNamespace.Core().V1().Namespaces().Informer(),
+			routeInformers.Route().V1().Routes().Informer(),
 		},
 		oauthDeploymentSyncer,
 		openshiftClusterConfigClient,
@@ -133,7 +138,16 @@ func NewOAuthServerWorkloadController(
 	)
 }
 
-func (c *oauthServerDeploymentSyncer) PreconditionFulfilled() (bool, error) {
+func (c *oauthServerDeploymentSyncer) PreconditionFulfilled(_ context.Context) (bool, error) {
+	route, err := c.routeLister.Routes("openshift-authentication").Get("oauth-openshift")
+	if err != nil {
+		return false, fmt.Errorf("waiting for the oauth-openshift route to appear: %w", err)
+	}
+
+	if _, _, err := routeapihelpers.IngressURI(route, ""); err != nil {
+		return false, fmt.Errorf("waiting for the oauth-openshift route to contain an admitted ingress: %w", err)
+	}
+
 	return true, nil
 }
 
@@ -185,7 +199,7 @@ func (c *oauthServerDeploymentSyncer) Sync(ctx context.Context, syncContext fact
 		return nil, false, append(errs, err)
 	}
 
-	err = c.ensureAtMostOnePodPerNode(&expectedDeployment.Spec, "oauth-apiserver")
+	err = c.ensureAtMostOnePodPerNode(&expectedDeployment.Spec, "oauth-openshift")
 	if err != nil {
 		return nil, false, append(errs, fmt.Errorf("unable to ensure at most one pod per node: %v", err))
 	}
@@ -212,7 +226,7 @@ func (c *oauthServerDeploymentSyncer) Sync(ctx context.Context, syncContext fact
 func (c *oauthServerDeploymentSyncer) getProxyConfig() (*configv1.Proxy, error) {
 	proxyConfig, err := c.proxyLister.Get("cluster")
 	if err != nil {
-		if !errors.IsNotFound(err) {
+		if errors.IsNotFound(err) {
 			klog.V(4).Infof("No proxy configuration found, defaulting to empty")
 			return &configv1.Proxy{}, nil
 		}
@@ -247,39 +261,4 @@ func (c *oauthServerDeploymentSyncer) getConfigResourceVersions() ([]string, err
 	}
 
 	return configRVs, nil
-}
-
-// updateOperatorDeploymentInfo updates the operator's Status .ReadyReplicas, .Generation and the
-// .Generetions field with data about the oauth-server deployment
-func (c *oauthServerDeploymentSyncer) updateOperatorDeploymentInfo(
-	ctx context.Context,
-	syncContext factory.SyncContext,
-	operatorConfig *operatorv1.Authentication,
-	deployment *appsv1.Deployment,
-) error {
-	operatorStatusOutdated := operatorConfig.Status.ObservedGeneration != operatorConfig.Generation ||
-		operatorConfig.Status.ReadyReplicas != deployment.Status.UpdatedReplicas ||
-		resourcemerge.ExpectedDeploymentGeneration(deployment, operatorConfig.Status.Generations) != deployment.Generation
-
-	if operatorStatusOutdated {
-		if err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			operatorConfig, err := c.auth.Authentications().Get(ctx, "cluster", metav1.GetOptions{})
-			if err != nil {
-				return err
-			}
-
-			// make sure we record the changes to the deployment
-			// if this fail, lets resync, this should not fail
-			resourcemerge.SetDeploymentGeneration(&operatorConfig.Status.Generations, deployment)
-			operatorConfig.Status.ObservedGeneration = operatorConfig.Generation
-			operatorConfig.Status.ReadyReplicas = deployment.Status.UpdatedReplicas
-
-			_, err = c.auth.Authentications().UpdateStatus(ctx, operatorConfig, metav1.UpdateOptions{})
-			return err
-		}); err != nil {
-			syncContext.Recorder().Warningf("AuthenticationUpdateStatusFailed", "Failed to update authentication operator status: %v", err)
-			return err
-		}
-	}
-	return nil
 }

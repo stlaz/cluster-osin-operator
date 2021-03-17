@@ -114,7 +114,7 @@ func TestCertRequester(t *testing.T) {
 			secretData:          map[string][]byte{"tls.key": testKey},
 			expectedCSRMatch:    defaultCSRMatch,
 			expectedSecretMatch: secretFullMatch,
-			expectedProgressing: pbool(true),
+			expectedProgressing: pbool(false),
 		},
 		{
 			name: "csr approved and issued, but there's no key in the cert secret -> reissue the CSR",

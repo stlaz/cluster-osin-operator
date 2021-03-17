@@ -97,7 +97,7 @@ func (c *webhookAuthenticatorCertRequester) syncWithConditions(ctx context.Conte
 
 		if statusErr != nil {
 			if err != nil {
-				klog.Error("failed to update operator status: %v", err)
+				klog.Error("failed to update operator status: %v", statusErr)
 				return err
 			}
 			return statusErr
@@ -127,7 +127,9 @@ func (c *webhookAuthenticatorCertRequester) sync(ctx context.Context, syncCtx fa
 			return pbool(false), nil
 		}
 
-		klog.V(5).Info("the authenticator's certificate is almost expired, will schedule a new CSR creation")
+		expiryMsg := fmt.Sprintf("the authenticator's certificate is almost expired (%s), will schedule a new CSR creation", cert.NotAfter.String())
+		syncCtx.Recorder().Eventf("ClientCertExpiringSoon", expiryMsg)
+		klog.V(5).Infof(expiryMsg)
 
 		// delete the cert/key secret and schedule a new sync
 		if err := c.secretClient.Delete(ctx, certSecretName, metav1.DeleteOptions{}); err != nil {
@@ -167,7 +169,6 @@ func (c *webhookAuthenticatorCertRequester) sync(ctx context.Context, syncCtx fa
 				if len(csrCert) == 0 {
 					return pbool(true), nil
 				}
-				// do a live Get, the cache might be stale at this point if we did an Update removing the cert before
 				certSecret, err := c.secretLister.Secrets("openshift-oauth-apiserver").Get(certSecretName)
 				if err != nil {
 					return nil, err
@@ -177,8 +178,13 @@ func (c *webhookAuthenticatorCertRequester) sync(ctx context.Context, syncCtx fa
 				if err != nil {
 					return nil, err
 				}
+				// we've got the cert, stop progressing
+				return pbool(false), nil
 			}
 		}
+
+		// no conditions with "True" status
+		return pbool(true), nil
 
 	}
 
